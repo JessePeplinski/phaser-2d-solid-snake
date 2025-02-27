@@ -80,7 +80,7 @@ export class TilemapGame extends Scene {
             fill: '#ffffff'
         });
 
-        this.helpText.setScrollFactor(0);
+        this.helpText.setScale(1 / this.currentZoom);
         
         // Add mouse wheel zoom listener
         this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
@@ -98,6 +98,8 @@ export class TilemapGame extends Scene {
         if (this.currentZoom < this.maxZoom) {
             this.currentZoom += this.zoomFactor;
             this.cameras.main.setZoom(this.currentZoom);
+            // Adjust the text scale to cancel out the camera zoom
+            this.helpText.setScale(1 / this.currentZoom);
             this.updateHelpText();
         }
     }
@@ -106,6 +108,8 @@ export class TilemapGame extends Scene {
         if (this.currentZoom > this.minZoom) {
             this.currentZoom -= this.zoomFactor;
             this.cameras.main.setZoom(this.currentZoom);
+            // Adjust the text scale to cancel out the camera zoom
+            this.helpText.setScale(1 / this.currentZoom);
             this.updateHelpText();
         }
     }
