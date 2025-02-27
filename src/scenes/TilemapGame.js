@@ -21,6 +21,7 @@ export class TilemapGame extends Scene {
         // Load the tilemap assets
         this.load.image('tiles', 'catastrophi_tiles_16.png');
         this.load.tilemapCSV('map', 'catastrophi_level2.csv');
+        // this.load.tilemapCSV('map', '/tilemaps/level1.csv');
         this.load.spritesheet('player', 'spaceman.png', { frameWidth: 16, frameHeight: 16 });
     }
 

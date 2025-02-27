@@ -1,16 +1,11 @@
 {
-    "Map/SizeTest": {
-        "height": 4300,
-        "width": 2
-    },
     "activeFile": "",
     "expandedProjectPaths": [
+        "src",
+        "src/scenes",
+        "tiled-assets",
+        "."
     ],
-    "fileStates": {
-    },
     "openFiles": [
-    ],
-    "project": "2d-solid-snake-tiles.tiled-project",
-    "recentFiles": [
     ]
 }
