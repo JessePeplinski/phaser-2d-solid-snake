@@ -84,14 +84,20 @@ export class TilemapGame extends Scene {
         
         // Add mouse wheel zoom listener
         this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
+            let targetZoom = this.currentZoom;
             if (deltaY > 0) {
-                // Scrolling down - zoom out
-                this.zoomOut();
+                targetZoom -= this.zoomFactor;  // Zoom out
             } else if (deltaY < 0) {
-                // Scrolling up - zoom in
-                this.zoomIn();
+                targetZoom += this.zoomFactor;  // Zoom in
             }
+            this.smoothZoomTo(targetZoom);
         });
+
+        this.input.keyboard.on('keydown-Z', () => {
+            this.smoothZoomTo(1); // Reset to default zoom (1x)
+        });
+        
+        
     }
     
     zoomIn() {
@@ -112,6 +118,22 @@ export class TilemapGame extends Scene {
             this.helpText.setScale(1 / this.currentZoom);
             this.updateHelpText();
         }
+    }
+
+    smoothZoomTo(targetZoom) {
+        // Clamp the target zoom value to your min and max bounds
+        targetZoom = Phaser.Math.Clamp(targetZoom, this.minZoom, this.maxZoom);
+        this.tweens.add({
+            targets: this.cameras.main,
+            zoom: targetZoom,
+            duration: 200,
+            ease: 'Sine.easeOut',
+            onUpdate: () => {
+                // Adjust the text scale in real-time to counteract the camera zoom
+                this.helpText.setScale(1 / this.cameras.main.zoom);
+            }
+        });
+        this.currentZoom = targetZoom;
     }
     
     updateHelpText() {
@@ -165,6 +187,6 @@ export class TilemapGame extends Scene {
     }
 
     getHelpMessage() {
-        return `Arrow keys to move.\nPress "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}\nMouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)`;
+        return `Arrow keys to move.\nPress "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}\nMouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)\nPress "Z" to reset zoom`;
     }
 }
