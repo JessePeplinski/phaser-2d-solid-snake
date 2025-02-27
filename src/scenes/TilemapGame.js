@@ -9,6 +9,10 @@ export class TilemapGame extends Scene {
         this.debugGraphics = null;
         this.cursors = null;
         this.map = null;
+        this.currentZoom = 1;
+        this.minZoom = 0.5;
+        this.maxZoom = 2;
+        this.zoomFactor = 0.1;
     }
 
     preload() {
@@ -77,6 +81,37 @@ export class TilemapGame extends Scene {
         });
 
         this.helpText.setScrollFactor(0);
+        
+        // Add mouse wheel zoom listener
+        this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
+            if (deltaY > 0) {
+                // Scrolling down - zoom out
+                this.zoomOut();
+            } else if (deltaY < 0) {
+                // Scrolling up - zoom in
+                this.zoomIn();
+            }
+        });
+    }
+    
+    zoomIn() {
+        if (this.currentZoom < this.maxZoom) {
+            this.currentZoom += this.zoomFactor;
+            this.cameras.main.setZoom(this.currentZoom);
+            this.updateHelpText();
+        }
+    }
+    
+    zoomOut() {
+        if (this.currentZoom > this.minZoom) {
+            this.currentZoom -= this.zoomFactor;
+            this.cameras.main.setZoom(this.currentZoom);
+            this.updateHelpText();
+        }
+    }
+    
+    updateHelpText() {
+        this.helpText.setText(this.getHelpMessage());
     }
 
     update(time, delta) {
@@ -122,10 +157,10 @@ export class TilemapGame extends Scene {
             });
         }
 
-        this.helpText.setText(this.getHelpMessage());
+        this.updateHelpText();
     }
 
     getHelpMessage() {
-        return `Arrow keys to move.\nPress "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}`;
+        return `Arrow keys to move.\nPress "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}\nMouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)`;
     }
 }
