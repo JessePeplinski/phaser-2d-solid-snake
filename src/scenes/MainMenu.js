@@ -18,7 +18,7 @@ export class MainMenu extends Scene {
         // Title text positioned above the center.
         this.add.text(centerX, centerY - 150, 'Solid Snek', {
             fontFamily: 'Arial Black',
-            fontSize: '38px',
+            fontSize: '56px',
             color: '#ffffff',
             stroke: '#000000',
             strokeThickness: 8,
@@ -26,7 +26,7 @@ export class MainMenu extends Scene {
         }).setOrigin(0.5);
 
         // Subtitle text positioned slightly below the title.
-        this.add.text(centerX, centerY - 80, 'A simple browser based 2D metal gear solid game', {
+        this.add.text(centerX, centerY - 100, 'A simple browser based 2D metal gear solid game', {
             fontFamily: 'Arial Black',
             fontSize: '24px',
             color: '#ffffff',
@@ -45,10 +45,11 @@ export class MainMenu extends Scene {
             align: 'center'
         };
 
-        const textCreatedBy = this.add.text(0, 0, 'Created by ', creditStyle);
-        const textPeptech = this.add.text(textCreatedBy.width, 0, '@peptech', creditStyle);
-        const textWith = this.add.text(textCreatedBy.width + textPeptech.width, 0, ' with ', creditStyle);
-        const textPhaser = this.add.text(textCreatedBy.width + textPeptech.width + textWith.width, 0, 'Phaser.js', creditStyle);
+        const textCreatedByYPosition = -80;
+        const textCreatedBy = this.add.text(0, textCreatedByYPosition, 'Created by ', creditStyle);
+        const textPeptech = this.add.text(textCreatedBy.width, textCreatedByYPosition, '@peptech', creditStyle);
+        const textWith = this.add.text(textCreatedBy.width + textPeptech.width, textCreatedByYPosition, ' with ', creditStyle);
+        const textPhaser = this.add.text(textCreatedBy.width + textPeptech.width + textWith.width, textCreatedByYPosition, 'Phaser.js', creditStyle);
 
         textPeptech.setInteractive({ useHandCursor: true });
         textPeptech.on('pointerover', () => textPeptech.setStyle({ fill: '#f39c12' }));
@@ -73,7 +74,7 @@ export class MainMenu extends Scene {
         ]);
 
         // Start Game button positioned below the center.
-        const startButton = this.add.text(centerX, centerY + 150, 'Start Game', {
+        const startButton = this.add.text(centerX, centerY, 'Start Game', {
             fontFamily: 'Arial Black',
             fontSize: '38px',
             color: '#ffffff',
