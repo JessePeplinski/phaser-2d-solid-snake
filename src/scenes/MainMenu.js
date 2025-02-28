@@ -25,8 +25,14 @@ export class MainMenu extends Scene
             align: 'center'
         }).setOrigin(0.5);
 
+        this.add.text(412, 350, 'Created by @peptech with Phaser.js.', {
+            fontFamily: 'Arial Black', fontSize: 24, color: '#ffffff',
+            stroke: '#000000', strokeThickness: 8,
+            align: 'center'
+        }).setOrigin(0.5);
 
-        this.add.text(412, 400, 'Start Game', {
+
+        this.add.text(412, 450, 'Start Game', {
             fontFamily: 'Arial Black', fontSize: 38, color: '#ffffff',
             stroke: '#000000', strokeThickness: 8,
             align: 'center'
