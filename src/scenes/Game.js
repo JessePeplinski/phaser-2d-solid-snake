@@ -254,10 +254,10 @@ export class Game extends Scene {
     }
 
     getHelpMessage() {
-        return `Arrow keys to move.
+        return `Use the arrow keys on desktop or virtual joystick on mobile to move.
+Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
 Press "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}
 Press "D" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
-Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
 Press "Z" to reset zoom`;
     }
 }
