@@ -2,6 +2,7 @@ import { Boot } from './scenes/Boot';
 import { Game } from './scenes/Game';
 import { MainMenu } from './scenes/MainMenu';
 import { Preloader } from './scenes/Preloader';
+import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin.js';
 
 import { AUTO, Scale, Physics } from 'phaser';
 
@@ -27,7 +28,16 @@ const config = {
         Preloader,
         MainMenu,
         Game,
-    ]
+    ],
+    plugins: {
+        global: [{
+            key: 'rexVirtualJoystick',
+            plugin: VirtualJoystickPlugin,
+            start: true
+        },
+        // additional pluggins here
+        ]
+    }
 };
 
 export default new Phaser.Game(config);

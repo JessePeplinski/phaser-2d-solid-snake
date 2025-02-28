@@ -9,19 +9,14 @@ export class Game extends Scene {
         this.helpText = null;
         this.debugGraphics = null;
         this.cursors = null;
+        this.joystick = null;
+        this.joystickCursor = null;
         this.map = null;
         this.layer = null; // Reference to our tilemap layer
         this.currentZoom = 1;
         this.minZoom = 0.5;
         this.maxZoom = 2;
         this.zoomFactor = 0.1;
-
-        // Mobile control properties
-        this.mobileInput = null;
-        this.leftButton = null;
-        this.rightButton = null;
-        this.upButton = null;
-        this.downButton = null;
     }
 
     preload() {
@@ -30,6 +25,7 @@ export class Game extends Scene {
         this.load.image('tiles', 'tilemaps/catastrophi_tiles_16.png');
         this.load.tilemapCSV('map', '/tilemaps/catastrophi_level2.csv');
         this.load.spritesheet('player', 'spaceman.png', { frameWidth: 16, frameHeight: 16 });
+        // Ensure rexVirtualJoystick plugin is loaded via a script tag or plugin config
     }
 
     create() {
@@ -112,106 +108,25 @@ export class Game extends Scene {
             this.smoothZoomTo(1); // Reset zoom
         });
 
-        // Create mobile controls if touch input is available
+        // Create virtual joystick for touch devices
         if (this.sys.game.device.input.touch) {
-            this.createMobileControls();
+            this.createVirtualJoystick();
         }
     }
     
-    createMobileControls() {
-        // Initialize mobile input state
-        this.mobileInput = { up: false, down: false, left: false, right: false };
-
-        const buttonSize = 50;
-        const gap = 10;
-        const margin = 10;
-        const gameWidth = Number(this.sys.game.config.width);
-        const gameHeight = Number(this.sys.game.config.height);
-
-        // Define the overall D-pad group dimensions
-        const groupWidth = buttonSize * 3 + gap * 2;
-        const groupHeight = buttonSize * 3 + gap * 2;
-        // Position the entire group in the bottom right corner
-        const groupX = gameWidth - margin - groupWidth;
-        const groupY = gameHeight - margin - groupHeight;
-        // The center of the group will be our reference point
-        const centerX = groupX + groupWidth / 2;
-        const centerY = groupY + groupHeight / 2;
-
-        // Create up button (centered horizontally above the center)
-        this.upButton = this.add.rectangle(
-            centerX,
-            centerY - (buttonSize + gap),
-            buttonSize,
-            buttonSize,
-            0x888888,
-            0.5
-        ).setScrollFactor(0);
-
-        // Create down button (centered horizontally below the center)
-        this.downButton = this.add.rectangle(
-            centerX,
-            centerY + (buttonSize + gap),
-            buttonSize,
-            buttonSize,
-            0x888888,
-            0.5
-        ).setScrollFactor(0);
-
-        // Create left button (to the left of the center)
-        this.leftButton = this.add.rectangle(
-            centerX - (buttonSize + gap),
-            centerY,
-            buttonSize,
-            buttonSize,
-            0x888888,
-            0.5
-        ).setScrollFactor(0);
-
-        // Create right button (to the right of the center)
-        this.rightButton = this.add.rectangle(
-            centerX + (buttonSize + gap),
-            centerY,
-            buttonSize,
-            buttonSize,
-            0x888888,
-            0.5
-        ).setScrollFactor(0);
-
-        // Global pointer events to update mobile input based on drag position
-        this.input.on('pointerdown', pointer => {
-            this.updateMobileInput(pointer);
-        });
-
-        this.input.on('pointermove', pointer => {
-            if (pointer.isDown) {
-                this.updateMobileInput(pointer);
-            }
-        });
-
-        this.input.on('pointerup', pointer => {
-            // Clear all mobile input flags when the pointer is released
-            this.mobileInput = { up: false, down: false, left: false, right: false };
-        });
-    }
-
-    updateMobileInput(pointer) {
-        // Reset mobile input flags
-        this.mobileInput = { up: false, down: false, left: false, right: false };
-
-        // Check which button(s) the pointer is over
-        if (this.upButton.getBounds().contains(pointer.x, pointer.y)) {
-            this.mobileInput.up = true;
-        }
-        if (this.downButton.getBounds().contains(pointer.x, pointer.y)) {
-            this.mobileInput.down = true;
-        }
-        if (this.leftButton.getBounds().contains(pointer.x, pointer.y)) {
-            this.mobileInput.left = true;
-        }
-        if (this.rightButton.getBounds().contains(pointer.x, pointer.y)) {
-            this.mobileInput.right = true;
-        }
+    createVirtualJoystick() {
+        // Create a virtual joystick using rexVirtualJoystick plugin.
+        // Adjust x and y to position the joystick as needed.
+        this.joystick = this.plugins.get('rexVirtualJoystick').add(this, {
+            x: 100,
+            y: this.sys.game.config.height - 100,
+            radius: 50,
+            base: this.add.circle(0, 0, 50, 0x888888),
+            thumb: this.add.circle(0, 0, 25, 0xcccccc),
+            // You can configure additional options here if needed.
+        }).setScrollFactor(0);
+        // Create cursor keys from the joystick for easier integration:
+        this.joystickCursor = this.joystick.createCursorKeys();
     }
     
     zoomIn() {
@@ -254,29 +169,45 @@ export class Game extends Scene {
         // Reset player velocity
         this.player.body.setVelocity(0);
 
-        // Determine movement from keyboard or mobile input
         let velocityX = 0;
         let velocityY = 0;
-        if (this.cursors.left.isDown || (this.mobileInput && this.mobileInput.left)) {
+        
+        // Keyboard input
+        if (this.cursors.left.isDown) {
             velocityX = -100;
-        } else if (this.cursors.right.isDown || (this.mobileInput && this.mobileInput.right)) {
+        } else if (this.cursors.right.isDown) {
             velocityX = 100;
         }
-        if (this.cursors.up.isDown || (this.mobileInput && this.mobileInput.up)) {
+        if (this.cursors.up.isDown) {
             velocityY = -100;
-        } else if (this.cursors.down.isDown || (this.mobileInput && this.mobileInput.down)) {
+        } else if (this.cursors.down.isDown) {
             velocityY = 100;
         }
+        
+        // Virtual joystick input (if available)
+        if (this.joystickCursor) {
+            if (this.joystickCursor.left.isDown) {
+                velocityX = -100;
+            } else if (this.joystickCursor.right.isDown) {
+                velocityX = 100;
+            }
+            if (this.joystickCursor.up.isDown) {
+                velocityY = -100;
+            } else if (this.joystickCursor.down.isDown) {
+                velocityY = 100;
+            }
+        }
+
         this.player.body.setVelocity(velocityX, velocityY);
 
-        // Update animations with left/right taking precedence
-        if (this.cursors.left.isDown || (this.mobileInput && this.mobileInput.left)) {
+        // Update animations based on movement
+        if (velocityX < 0) {
             this.player.anims.play('left', true);
-        } else if (this.cursors.right.isDown || (this.mobileInput && this.mobileInput.right)) {
+        } else if (velocityX > 0) {
             this.player.anims.play('right', true);
-        } else if (this.cursors.up.isDown || (this.mobileInput && this.mobileInput.up)) {
+        } else if (velocityY < 0) {
             this.player.anims.play('up', true);
-        } else if (this.cursors.down.isDown || (this.mobileInput && this.mobileInput.down)) {
+        } else if (velocityY > 0) {
             this.player.anims.play('down', true);
         } else {
             this.player.anims.stop();
