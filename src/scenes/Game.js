@@ -4,12 +4,13 @@ export class Game extends Scene {
     constructor() {
         super('Game');
         this.showDebug = false;
+        this.darknessEnabled = true; // Flag for enabling/disabling darkness
         this.player = null;
         this.helpText = null;
         this.debugGraphics = null;
         this.cursors = null;
         this.map = null;
-        this.layer = null; // Store the tilemap layer for later use.
+        this.layer = null; // Reference to our tilemap layer
         this.currentZoom = 1;
         this.minZoom = 0.5;
         this.maxZoom = 2;
@@ -69,9 +70,19 @@ export class Game extends Scene {
 
         this.debugGraphics = this.add.graphics();
 
+        // Toggle debug visuals using "C"
         this.input.keyboard.on('keydown-C', () => {
             this.showDebug = !this.showDebug;
             this.drawDebug();
+        });
+
+        // Toggle the darkness system using "D"
+        this.input.keyboard.on('keydown-D', () => {
+            this.darknessEnabled = !this.darknessEnabled;
+            if (!this.darknessEnabled) {
+                this.resetDarkness(); // When off, make all tiles fully visible
+            }
+            this.updateHelpText();
         });
 
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -165,28 +176,33 @@ export class Game extends Scene {
             this.player.anims.stop();
         }
 
-        // Update the darkness system each frame
-        this.updateDarkness();
+        // Update darkness system only if enabled
+        if (this.darknessEnabled) {
+            this.updateDarkness();
+        }
     }
 
     updateDarkness() {
         // Convert the player's world position to tile coordinates
         const playerTile = this.map.worldToTileXY(this.player.x, this.player.y);
-        // Define the visibility radius in tiles
-        const visibilityRadius = 10;
+        const visibilityRadius = 5;
         
-        // Iterate over each tile in the layer and adjust its alpha
+        // Update tile alpha based on snake distance from the player
         this.layer.forEachTile(tile => {
-            // Use the "Snake" distance (grid-based) to determine distance from player
             const dist = Phaser.Math.Distance.Snake(playerTile.x, playerTile.y, tile.x, tile.y);
             if (dist <= visibilityRadius) {
-                // For a smooth fade effect, linearly interpolate alpha from 1 at the player to 0 at the edge
                 const alpha = Phaser.Math.Clamp(1 - (dist / visibilityRadius), 0, 1);
                 tile.setAlpha(alpha);
             } else {
-                // Outside the radius, the tile is completely dark
                 tile.setAlpha(0);
             }
+        });
+    }
+
+    resetDarkness() {
+        // Set all tiles to fully visible (alpha = 1)
+        this.layer.forEachTile(tile => {
+            tile.setAlpha(1);
         });
     }
 
@@ -194,7 +210,6 @@ export class Game extends Scene {
         this.debugGraphics.clear();
 
         if (this.showDebug) {
-            // Render debug outlines for colliding tiles, etc.
             this.map.renderDebug(this.debugGraphics, {
                 tileColor: null,
                 collidingTileColor: new Phaser.Display.Color(243, 134, 48, 200),
@@ -207,6 +222,7 @@ export class Game extends Scene {
     getHelpMessage() {
         return `Arrow keys to move.
 Press "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}
+Press "D" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
 Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
 Press "Z" to reset zoom`;
     }
