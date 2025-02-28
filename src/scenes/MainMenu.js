@@ -29,6 +29,29 @@ export class MainMenu extends Scene {
             repeat: -1
         });
 
+        // Add subtle visual glitches every few seconds.
+        this.time.addEvent({
+            delay: 2500, // every 2.5 seconds
+            loop: true,
+            callback: () => {
+                // Generate small random offsets and a slight angle change.
+                const glitchX = Phaser.Math.Between(-3, 3);
+                const glitchY = Phaser.Math.Between(-3, 3);
+                const glitchAngle = Phaser.Math.Between(-1, 1);
+                
+                // Apply a quick tween to create a subtle glitch effect.
+                this.tweens.add({
+                    targets: background,
+                    x: centerX + glitchX,
+                    y: centerY + glitchY,
+                    angle: glitchAngle,
+                    duration: 100,
+                    ease: 'Sine.easeInOut',
+                    yoyo: true
+                });
+            }
+        });
+
         // Title text positioned above the center.
         this.add.text(centerX, centerY - 150 * scaleFactor, 'Solid Snek', {
             fontFamily: 'Arial Black',
