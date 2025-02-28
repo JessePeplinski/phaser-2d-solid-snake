@@ -29,9 +29,9 @@ export class MainMenu extends Scene {
         }).setOrigin(0.5);
 
         // Subtitle text positioned slightly below the title.
-        this.add.text(centerX, centerY - 100 * scaleFactor, 'A simple browser based 2D metal gear solid game', {
+        this.add.text(centerX, centerY - 100 * scaleFactor, 'A 2D browser-based dungeon crawler inspired by Metal Gear Solid', {
             fontFamily: 'Arial Black',
-            fontSize: `${24 * scaleFactor}px`,
+            fontSize: `${18 * scaleFactor}px`,
             color: '#ffffff',
             stroke: '#000000',
             strokeThickness: 8 * scaleFactor,
@@ -78,7 +78,7 @@ export class MainMenu extends Scene {
         ]);
 
         // Start Game button positioned below the center.
-        const startButton = this.add.text(centerX, centerY + 50 * scaleFactor, 'Start Game', {
+        const startButton = this.add.text(centerX, centerY + 20 * scaleFactor, 'Start Game', {
             fontFamily: 'Arial Black',
             fontSize: `${38 * scaleFactor}px`,
             color: '#ffffff',
