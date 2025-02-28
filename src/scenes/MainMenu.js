@@ -6,51 +6,55 @@ export class MainMenu extends Scene {
     }
 
     create() {
-        const centerX = this.cameras.main.width / 2;
-        const centerY = this.cameras.main.height / 2;
+        const { width, height } = this.cameras.main;
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        // Use a base width (e.g., 800) as your design reference.
+        const baseWidth = 800;
+        const scaleFactor = width / baseWidth;
 
         // Add and stretch the background image to fill the screen.
         const background = this.add.image(centerX, centerY, 'background');
-        background.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
-
-        // Breathing effect removed.
+        background.setDisplaySize(width, height);
 
         // Title text positioned above the center.
-        this.add.text(centerX, centerY - 150, 'Solid Snek', {
+        this.add.text(centerX, centerY - 150 * scaleFactor, 'Solid Snek', {
             fontFamily: 'Arial Black',
-            fontSize: '56px',
+            fontSize: `${56 * scaleFactor}px`,
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 8,
+            strokeThickness: 8 * scaleFactor,
             align: 'center'
         }).setOrigin(0.5);
 
         // Subtitle text positioned slightly below the title.
-        this.add.text(centerX, centerY - 100, 'A simple browser based 2D metal gear solid game', {
+        this.add.text(centerX, centerY - 100 * scaleFactor, 'A simple browser based 2D metal gear solid game', {
             fontFamily: 'Arial Black',
-            fontSize: '24px',
+            fontSize: `${24 * scaleFactor}px`,
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 8,
+            strokeThickness: 8 * scaleFactor,
             align: 'center'
         }).setOrigin(0.5);
 
-        // Credits container setup.
+        // Credit text style using scaling.
         const creditStyle = {
             fontFamily: 'Arial Black',
-            fontSize: '24px',
+            fontSize: `${24 * scaleFactor}px`,
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 8,
+            strokeThickness: 8 * scaleFactor,
             align: 'center'
         };
 
-        const textCreatedByYPosition = -80;
+        const textCreatedByYPosition = -80 * scaleFactor;
         const textCreatedBy = this.add.text(0, textCreatedByYPosition, 'Created by ', creditStyle);
         const textPeptech = this.add.text(textCreatedBy.width, textCreatedByYPosition, '@peptech', creditStyle);
         const textWith = this.add.text(textCreatedBy.width + textPeptech.width, textCreatedByYPosition, ' with ', creditStyle);
         const textPhaser = this.add.text(textCreatedBy.width + textPeptech.width + textWith.width, textCreatedByYPosition, 'Phaser.js', creditStyle);
 
+        // Make interactive links for credits.
         textPeptech.setInteractive({ useHandCursor: true });
         textPeptech.on('pointerover', () => textPeptech.setStyle({ fill: '#f39c12' }));
         textPeptech.on('pointerout', () => textPeptech.setStyle({ fill: '#ffffff' }));
@@ -74,12 +78,12 @@ export class MainMenu extends Scene {
         ]);
 
         // Start Game button positioned below the center.
-        const startButton = this.add.text(centerX, centerY, 'Start Game', {
+        const startButton = this.add.text(centerX, centerY + 50 * scaleFactor, 'Start Game', {
             fontFamily: 'Arial Black',
-            fontSize: '38px',
+            fontSize: `${38 * scaleFactor}px`,
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 8,
+            strokeThickness: 8 * scaleFactor,
             align: 'center'
         }).setOrigin(0.5);
 
