@@ -3,9 +3,23 @@ import { Scene } from 'phaser';
 export class MainMenu extends Scene {
     constructor() {
         super('MainMenu');
+        this.music = null;
     }
 
     create() {
+        // Set up the background music but don't play it yet
+        this.music = this.sound.add('mgs-intro-music', {
+            volume: 0.5,
+            loop: true
+        });
+        
+        // Add a one-time interaction listener to the entire scene to start audio
+        this.input.once('pointerdown', () => {
+            if (!this.music.isPlaying) {
+                this.music.play();
+            }
+        });
+        
         const { width, height } = this.cameras.main;
         const centerX = width / 2;
         const centerY = height / 2;
@@ -52,6 +66,31 @@ export class MainMenu extends Scene {
             }
         });
 
+        // Add a message to prompt user interaction
+        const tapText = this.add.text(centerX, height - 40 * scaleFactor, 'Tap anywhere to enable sound', {
+            fontFamily: 'Arial',
+            fontSize: `${16 * scaleFactor}px`,
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 4 * scaleFactor,
+            align: 'center'
+        }).setOrigin(0.5);
+        
+        // Make the text pulse to draw attention
+        this.tweens.add({
+            targets: tapText,
+            alpha: 0.5,
+            duration: 1000,
+            ease: 'Sine.easeInOut',
+            yoyo: true,
+            repeat: -1
+        });
+        
+        // Remove the prompt after first interaction
+        this.input.once('pointerdown', () => {
+            tapText.destroy();
+        });
+        
         // Title text positioned above the center.
         this.add.text(centerX, centerY - 150 * scaleFactor, 'Solid Snek', {
             fontFamily: 'Arial Black',
@@ -125,7 +164,31 @@ export class MainMenu extends Scene {
         startButton.on('pointerover', () => startButton.setStyle({ fill: '#f39c12' }));
         startButton.on('pointerout', () => startButton.setStyle({ fill: '#ffffff' }));
         startButton.on('pointerdown', () => {
+            // Simply stop the music and start the game
+            this.music.stop();
             this.scene.start('Game');
+        });
+        
+        // Add sound control button in the top-right corner
+        const soundButton = this.add.text(width - 20, 20, '🔊', {
+            fontFamily: 'Arial',
+            fontSize: `${24 * scaleFactor}px`,
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 4 * scaleFactor
+        }).setOrigin(1, 0);
+        
+        soundButton.setInteractive({ useHandCursor: true });
+        soundButton.on('pointerover', () => soundButton.setAlpha(0.7));
+        soundButton.on('pointerout', () => soundButton.setAlpha(1));
+        soundButton.on('pointerdown', () => {
+            if (this.sound.mute) {
+                this.sound.mute = false;
+                soundButton.setText('🔊');
+            } else {
+                this.sound.mute = true;
+                soundButton.setText('🔇');
+            }
         });
     }
 }

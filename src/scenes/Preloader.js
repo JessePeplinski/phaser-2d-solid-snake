@@ -33,6 +33,9 @@ export class Preloader extends Scene
         this.load.setPath('assets');
 
         this.load.image('logo', 'logo.png');
+
+        // Load the background music for the main menu
+        this.load.audio('mgs-intro-music', 'sounds/mgs-intro-music.mp3');
     }
 
     create ()
