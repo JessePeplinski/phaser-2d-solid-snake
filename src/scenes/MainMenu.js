@@ -18,6 +18,17 @@ export class MainMenu extends Scene {
         const background = this.add.image(centerX, centerY, 'background');
         background.setDisplaySize(width, height);
 
+        // Add a "breathing" tween animation to the background.
+        this.tweens.add({
+            targets: background,
+            scaleX: background.scaleX * 1.02,
+            scaleY: background.scaleY * 1.02,
+            duration: 3000,
+            ease: 'Sine.easeInOut',
+            yoyo: true,
+            repeat: -1
+        });
+
         // Title text positioned above the center.
         this.add.text(centerX, centerY - 150 * scaleFactor, 'Solid Snek', {
             fontFamily: 'Arial Black',
