@@ -146,7 +146,7 @@ export class Game extends Scene {
             buttonSize,
             0x888888,
             0.5
-        ).setScrollFactor(0).setInteractive();
+        ).setScrollFactor(0);
 
         // Create down button (centered horizontally below the center)
         this.downButton = this.add.rectangle(
@@ -156,7 +156,7 @@ export class Game extends Scene {
             buttonSize,
             0x888888,
             0.5
-        ).setScrollFactor(0).setInteractive();
+        ).setScrollFactor(0);
 
         // Create left button (to the left of the center)
         this.leftButton = this.add.rectangle(
@@ -166,7 +166,7 @@ export class Game extends Scene {
             buttonSize,
             0x888888,
             0.5
-        ).setScrollFactor(0).setInteractive();
+        ).setScrollFactor(0);
 
         // Create right button (to the right of the center)
         this.rightButton = this.add.rectangle(
@@ -176,27 +176,42 @@ export class Game extends Scene {
             buttonSize,
             0x888888,
             0.5
-        ).setScrollFactor(0).setInteractive();
+        ).setScrollFactor(0);
 
-        // Add pointer events for the up button
-        this.upButton.on('pointerdown', () => { this.mobileInput.up = true; });
-        this.upButton.on('pointerup', () => { this.mobileInput.up = false; });
-        this.upButton.on('pointerout', () => { this.mobileInput.up = false; });
+        // Global pointer events to update mobile input based on drag position
+        this.input.on('pointerdown', pointer => {
+            this.updateMobileInput(pointer);
+        });
 
-        // Add pointer events for the down button
-        this.downButton.on('pointerdown', () => { this.mobileInput.down = true; });
-        this.downButton.on('pointerup', () => { this.mobileInput.down = false; });
-        this.downButton.on('pointerout', () => { this.mobileInput.down = false; });
+        this.input.on('pointermove', pointer => {
+            if (pointer.isDown) {
+                this.updateMobileInput(pointer);
+            }
+        });
 
-        // Add pointer events for the left button
-        this.leftButton.on('pointerdown', () => { this.mobileInput.left = true; });
-        this.leftButton.on('pointerup', () => { this.mobileInput.left = false; });
-        this.leftButton.on('pointerout', () => { this.mobileInput.left = false; });
+        this.input.on('pointerup', pointer => {
+            // Clear all mobile input flags when the pointer is released
+            this.mobileInput = { up: false, down: false, left: false, right: false };
+        });
+    }
 
-        // Add pointer events for the right button
-        this.rightButton.on('pointerdown', () => { this.mobileInput.right = true; });
-        this.rightButton.on('pointerup', () => { this.mobileInput.right = false; });
-        this.rightButton.on('pointerout', () => { this.mobileInput.right = false; });
+    updateMobileInput(pointer) {
+        // Reset mobile input flags
+        this.mobileInput = { up: false, down: false, left: false, right: false };
+
+        // Check which button(s) the pointer is over
+        if (this.upButton.getBounds().contains(pointer.x, pointer.y)) {
+            this.mobileInput.up = true;
+        }
+        if (this.downButton.getBounds().contains(pointer.x, pointer.y)) {
+            this.mobileInput.down = true;
+        }
+        if (this.leftButton.getBounds().contains(pointer.x, pointer.y)) {
+            this.mobileInput.left = true;
+        }
+        if (this.rightButton.getBounds().contains(pointer.x, pointer.y)) {
+            this.mobileInput.right = true;
+        }
     }
     
     zoomIn() {
