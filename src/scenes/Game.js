@@ -115,17 +115,17 @@ export class Game extends Scene {
     }
     
     createVirtualJoystick() {
-        // Create a virtual joystick using rexVirtualJoystick plugin.
-        // Adjust x and y to position the joystick as needed.
+        const margin = 20; // margin from the screen edges
+        const radius = 50;
+        const gameWidth = Number(this.sys.game.config.width);
+        const gameHeight = Number(this.sys.game.config.height);
         this.joystick = this.plugins.get('rexVirtualJoystick').add(this, {
-            x: 100,
-            y: this.sys.game.config.height - 100,
-            radius: 50,
-            base: this.add.circle(0, 0, 50, 0x888888),
-            thumb: this.add.circle(0, 0, 25, 0xcccccc),
-            // You can configure additional options here if needed.
+            x: gameWidth - margin - radius,
+            y: gameHeight - margin - radius,
+            radius: radius,
+            base: this.add.circle(0, 0, radius, 0x888888),
+            thumb: this.add.circle(0, 0, radius * 0.5, 0xcccccc)
         }).setScrollFactor(0);
-        // Create cursor keys from the joystick for easier integration:
         this.joystickCursor = this.joystick.createCursorKeys();
     }
     
