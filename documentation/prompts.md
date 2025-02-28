@@ -1,3 +1,8 @@
+# Generic Start of Question
+I'm using v3.88.2 of Phaser. 
+
+<prompt>
+
 # Question
 I need to account for a larger background image for the Main Menu screen of my Phaser.js, sized 1024 x 1024 from 512 x 384. What do I need to update in my code to do so? Attached are my relevant assets.
 
