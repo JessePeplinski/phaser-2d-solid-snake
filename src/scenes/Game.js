@@ -31,7 +31,7 @@ export class Game extends Scene {
         const tileset = this.map.addTilesetImage('tiles');
         const layer = this.map.createLayer(0, tileset, 0, 0);
 
-        // This isn't totally accurate, but it'll do for now
+        // This indicates that the tilemap items 54 through 83 use collision. 
         this.map.setCollisionBetween(54, 83);
 
         this.anims.create({
