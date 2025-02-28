@@ -1,6 +1,11 @@
-import { TilemapGame } from './scenes/TilemapGame';
-import { Game as MainGame } from './scenes/Game';
-import { AUTO, Scale, Game, Physics } from 'phaser';
+import { Boot } from './scenes/Boot';
+import { Game } from './scenes/Game';
+// import { GameOver } from './scenes/GameOver';
+import { MainMenu } from './scenes/MainMenu';
+import { Preloader } from './scenes/Preloader';
+
+
+import { AUTO, Scale, Physics } from 'phaser';
 
 //  Find out more information about the Game Config at:
 //  https://newdocs.phaser.io/docs/3.70.0/Phaser.Types.Core.GameConfig
@@ -22,8 +27,11 @@ const config = {
         }
     },
     scene: [
-        TilemapGame
+        Boot,
+        Preloader,
+        MainMenu,
+        Game,
     ]
 };
 
-export default new Game(config);
+export default new Phaser.Game(config);
