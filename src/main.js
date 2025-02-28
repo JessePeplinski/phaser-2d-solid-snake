@@ -1,23 +1,19 @@
 import { Boot } from './scenes/Boot';
 import { Game } from './scenes/Game';
-// import { GameOver } from './scenes/GameOver';
 import { MainMenu } from './scenes/MainMenu';
 import { Preloader } from './scenes/Preloader';
 
-
 import { AUTO, Scale, Physics } from 'phaser';
 
-//  Find out more information about the Game Config at:
-//  https://newdocs.phaser.io/docs/3.70.0/Phaser.Types.Core.GameConfig
 const config = {
     type: AUTO,
-    width: 800,
-    height: 600,
+    width: window.innerWidth,   // Set canvas width to full viewport width
+    height: window.innerHeight, // Set canvas height to full viewport height
     parent: 'game-container',
     backgroundColor: '#2d2d2d',
     pixelArt: true,
     scale: {
-        mode: Scale.FIT,
+        mode: Scale.RESIZE,              // Automatically resize the canvas
         autoCenter: Scale.CENTER_BOTH
     },
     physics: {

@@ -6,55 +6,39 @@ export class MainMenu extends Scene {
     }
 
     create() {
-        const centerX = 412;
-        const centerY = 512;
+        const centerX = this.cameras.main.width / 2;
+        const centerY = this.cameras.main.height / 2;
 
-        // 1) Add the background
+        // Add and stretch the background image to fill the screen.
         const background = this.add.image(centerX, centerY, 'background');
+        background.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
 
-        // 2) Create a tween to add a breathing effect
-        this.tweens.add({
-            targets: background,
-            scale: 1.05,            // slightly increase the scale
-            duration: 2000,        // time (in ms) for scale to go from 1.0 to 1.05
-            ease: 'Sine.easeInOut', // smooth “breathing” effect
-            yoyo: true,            // reverse the tween back to scale=1
-            repeat: -1             // loop forever
-        });
+        // Breathing effect removed.
 
-        // Optionally, you could also tween the rotation or position a tiny bit:
-        // this.tweens.add({
-        //     targets: background,
-        //     angle: 1,           // a slight rotation
-        //     duration: 2000,
-        //     ease: 'Sine.easeInOut',
-        //     yoyo: true,
-        //     repeat: -1
-        // });
-
-        // The rest of your menu setup
-        this.add.text(centerX, 150, 'Solid Snek', {
+        // Title text positioned above the center.
+        this.add.text(centerX, centerY - 150, 'Solid Snek', {
             fontFamily: 'Arial Black',
-            fontSize: 38,
+            fontSize: '38px',
             color: '#ffffff',
             stroke: '#000000',
             strokeThickness: 8,
             align: 'center'
         }).setOrigin(0.5);
 
-        this.add.text(centerX, 250, 'A simple browser based 2D metal gear solid game', {
+        // Subtitle text positioned slightly below the title.
+        this.add.text(centerX, centerY - 80, 'A simple browser based 2D metal gear solid game', {
             fontFamily: 'Arial Black',
-            fontSize: 24,
+            fontSize: '24px',
             color: '#ffffff',
             stroke: '#000000',
             strokeThickness: 8,
             align: 'center'
         }).setOrigin(0.5);
 
-        // Credits container setup
+        // Credits container setup.
         const creditStyle = {
             fontFamily: 'Arial Black',
-            fontSize: 24,
+            fontSize: '24px',
             color: '#ffffff',
             stroke: '#000000',
             strokeThickness: 8,
@@ -81,17 +65,17 @@ export class MainMenu extends Scene {
         });
 
         const totalWidth = textCreatedBy.width + textPeptech.width + textWith.width + textPhaser.width;
-        this.add.container(centerX - totalWidth / 2, 300, [
+        this.add.container(centerX - totalWidth / 2, centerY, [
             textCreatedBy,
             textPeptech,
             textWith,
             textPhaser
         ]);
 
-        // Start Game button
-        const startButton = this.add.text(centerX, 400, 'Start Game', {
+        // Start Game button positioned below the center.
+        const startButton = this.add.text(centerX, centerY + 150, 'Start Game', {
             fontFamily: 'Arial Black',
-            fontSize: 38,
+            fontSize: '38px',
             color: '#ffffff',
             stroke: '#000000',
             strokeThickness: 8,
