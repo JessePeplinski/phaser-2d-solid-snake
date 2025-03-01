@@ -1,6 +1,8 @@
 # Generic Start of Question
 I'm using v3.88.2 of Phaser. 
 
+Since this file is so large, continue the file in a new artifact exactly where you left off. 
+
 <prompt>
 
 # Question
@@ -54,4 +56,10 @@ On mobile, I scale down my resolution so that everything fits and sizes to the u
 Do you have suggestions on how I can improve this?
 
 ## Add AI
-Now that I have basic game elements implemented, I want to add a basic AI system. The AI should look just like the player. 
+Now that I have basic game elements implemented, I want to add a basic AI system that attempts to hunt the player. The idea that is if the AI catches up and touches the player, they are captured, and therefore lose the game.
+
+The AI should appear in the game and use the same movement and animations as the player for movement, though make them a bit slower so the player has a chance to out-run them. 
+
+I will use tile 33 in my code to specify the AI spawn points. When they spawn, they should wander through the map and try to hunt down the player. They should have the same sight line as the player (i.e. they can only see as much as the player can in their darkness).
+
+The player should also be able to see the AI's vision as well. Make this the same way as we did the darkness, but make it a slightly yellow cone so it's clear to the user what the line of sight for the AI is. 

@@ -1,5 +1,6 @@
 import { Scene } from 'phaser';
 import { gameProgress } from './GameProgress';
+import { AI } from '../entities/AI';
 
 export class Game extends Scene {
     constructor() {
@@ -30,6 +31,8 @@ export class Game extends Scene {
         this.timerText = null;
         this.currentLevel = null;
         this.keyListeners = [];
+        this.enemies = [];
+        this.captureDistance = 24; // Distance at which an AI can capture the player
     }
 
     init(data) {
@@ -161,6 +164,9 @@ export class Game extends Scene {
         if (this.darknessEnabled) {
             this.updateDarkness();
         }
+        
+        // Spawn enemies
+        this.spawnEnemies();
     }
     
     // Set up keyboard event listeners
@@ -234,6 +240,12 @@ export class Game extends Scene {
             this.joystickCursor = null;
         }
         
+        // Destroy all enemies
+        if (this.enemies) {
+            this.enemies.forEach(enemy => enemy.destroy());
+            this.enemies = [];
+        }
+        
         // Start the new scene
         this.scene.start(sceneName, data);
     }
@@ -299,7 +311,8 @@ export class Game extends Scene {
 Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
 Press "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}
 Press "D" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
-Press "Z" to reset zoom`;
+Press "Z" to reset zoom
+Enemies: ${this.enemies.length}`;
     }
 
     update(time, delta) {
@@ -392,6 +405,146 @@ Press "Z" to reset zoom`;
         if (this.darknessEnabled) {
             this.updateDarkness();
         }
+        
+        // Update enemies
+        this.updateEnemies(time, delta);
+    }
+    
+    // Spawn enemies from tile index 33
+    spawnEnemies() {
+        // Clear any existing enemies
+        this.enemies.forEach(enemy => enemy.destroy());
+        this.enemies = [];
+        
+        // Look for enemy spawn points (tile index 33)
+        this.layer.forEachTile(tile => {
+            if (tile.index === 33) {
+                const enemy = new AI(
+                    this,
+                    tile.pixelX + tile.width / 2,
+                    tile.pixelY + tile.height / 2
+                );
+                
+                // Add collision with the map
+                this.physics.add.collider(enemy, this.layer);
+                
+                // Store reference to the enemy
+                this.enemies.push(enemy);
+            }
+        });
+        
+        console.log(`Spawned ${this.enemies.length} enemies`);
+    }
+
+    // Update all enemies in the scene
+    updateEnemies(time, delta) {
+        this.enemies.forEach(enemy => {
+            enemy.update(time, delta, this.player);
+            
+            // Check for player capture
+            if (!this.gameOver) {
+                const distance = Phaser.Math.Distance.Between(
+                    enemy.x, enemy.y,
+                    this.player.x, this.player.y
+                );
+                
+                if (distance <= this.captureDistance) {
+                    this.onPlayerCaptured();
+                }
+            }
+        });
+    }
+
+    // Handle player capture event
+    onPlayerCaptured() {
+        this.gameOver = true;
+        
+        // Show capture message
+        this.showCaptureScreen();
+        this.player.body.setVelocity(0);
+    }
+
+    // Display the capture screen when caught by an enemy
+    showCaptureScreen() {
+        const { width, height } = this.cameras.main;
+        const centerX = this.cameras.main.worldView.x + width / 2;
+        const centerY = this.cameras.main.worldView.y + height / 2;
+        const baseWidth = 800;
+        const scaleFactor = width / baseWidth;
+        
+        // Create background
+        const overlay = this.add.rectangle(
+            centerX, 
+            centerY, 
+            width, 
+            height, 
+            0x000000, 
+            0.7
+        );
+        
+        // Capture message
+        const captureText = this.add.text(centerX, centerY - 100 * scaleFactor, 'You\'ve Been Captured!', {
+            fontFamily: 'Arial Black',
+            fontSize: `${48 * scaleFactor}px`,
+            fill: '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 6 * scaleFactor
+        }).setOrigin(0.5);
+        
+        const buttonStyle = {
+            fontFamily: 'Arial Black',
+            fontSize: `${24 * scaleFactor}px`,
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 4 * scaleFactor,
+            backgroundColor: '#4a4a4a',
+            padding: {
+                left: 16 * scaleFactor,
+                right: 16 * scaleFactor,
+                top: 8 * scaleFactor,
+                bottom: 8 * scaleFactor
+            }
+        };
+        
+        // Retry button
+        const retryButton = this.add.text(centerX, centerY, 'Retry Level', buttonStyle).setOrigin(0.5);
+        
+        retryButton.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => retryButton.setStyle({ color: '#f39c12' }))
+            .on('pointerout', () => retryButton.setStyle({ color: '#ffffff' }))
+            .on('pointerdown', () => {
+                this.cleanupAndChangeScene('Game', { levelKey: this.currentLevel });
+            });
+        
+        // Level select button
+        const levelSelectButton = this.add.text(
+            centerX, 
+            centerY + 60 * scaleFactor, 
+            'Level Select', 
+            buttonStyle
+        ).setOrigin(0.5);
+        
+        levelSelectButton.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => levelSelectButton.setStyle({ color: '#f39c12' }))
+            .on('pointerout', () => levelSelectButton.setStyle({ color: '#ffffff' }))
+            .on('pointerdown', () => {
+                this.cleanupAndChangeScene('LevelSelect');
+            });
+        
+        // Main menu button
+        const mainMenuButton = this.add.text(
+            centerX, 
+            centerY + 120 * scaleFactor, 
+            'Main Menu', 
+            buttonStyle
+        ).setOrigin(0.5);
+        
+        mainMenuButton.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => mainMenuButton.setStyle({ color: '#f39c12' }))
+            .on('pointerout', () => mainMenuButton.setStyle({ color: '#ffffff' }))
+            .on('pointerdown', () => {
+                this.cleanupAndChangeScene('MainMenu');
+            });
     }
 
     onTimeExpired() {
