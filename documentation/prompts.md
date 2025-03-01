@@ -36,8 +36,11 @@ This code worked as expected. Now, add a time limit that the user has to complet
 ## Add Level Screen
 I want to add a Level screen to my game.
 
-When the "Start Game" button is pressed, bring the user to a new scren that selects a level for them. This will effectively load a different file in `public/assets/tilemaps`. All of my levels follow the convention `level1.csv`, `level2.csv`, `level3.csv`, etc. Once they click on a level, then the level with start. 
+When the "Start Game" button is pressed, bring the user to a new screen where they can select a level. This will load a new file in `public/assets/tilemaps`. All of my levels follow the convention `level1.csv`, `level2.csv`, `level3.csv`, etc. 
 
 Make this dynamic so that whatever number of CSV files I have with my naming convention are present will display that number of levels on the screen. 
 
 ## Add AI
+
+# Preloader
+I don't think that I'm using my Preloader.js in the best way yet to load all my assets. Can you make sure my assets are all loaded from this file and use the best practices for loading assets? I assume a loading progress indicator would be helpful here, too.

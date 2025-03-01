@@ -24,15 +24,6 @@ export class Game extends Scene {
         this.timerText = null;
     }
 
-    preload() {
-        this.load.setPath('assets');
-        // Load the tilemap assets
-        this.load.image('tiles', 'tilemaps/catastrophi_tiles_16.png');
-        this.load.tilemapCSV('map', '/tilemaps/level1.csv');
-        this.load.spritesheet('player', 'spaceman.png', { frameWidth: 16, frameHeight: 16 });
-        // Ensure rexVirtualJoystick plugin is loaded via a script tag or plugin config
-    }
-
     create() {
         // Create the tilemap and store the layer for later use
         this.map = this.make.tilemap({ key: 'map', tileWidth: 16, tileHeight: 16 });
@@ -41,32 +32,6 @@ export class Game extends Scene {
         this.map.setCollisionBetween(54, 83);
         // tile 32 is the player spawn tile
         // tile 31 is the goal tile
-
-        // Create player animations
-        this.anims.create({
-            key: 'left',
-            frames: this.anims.generateFrameNumbers('player', { start: 8, end: 9 }),
-            frameRate: 10,
-            repeat: -1
-        });
-        this.anims.create({
-            key: 'right',
-            frames: this.anims.generateFrameNumbers('player', { start: 1, end: 2 }),
-            frameRate: 10,
-            repeat: -1
-        });
-        this.anims.create({
-            key: 'up',
-            frames: this.anims.generateFrameNumbers('player', { start: 11, end: 13 }),
-            frameRate: 10,
-            repeat: -1
-        });
-        this.anims.create({
-            key: 'down',
-            frames: this.anims.generateFrameNumbers('player', { start: 4, end: 6 }),
-            frameRate: 10,
-            repeat: -1
-        });
 
         // Create the player. We start by creating it at (0, 0) then update its position.
         this.player = this.physics.add.sprite(0, 0, 'player', 1);
