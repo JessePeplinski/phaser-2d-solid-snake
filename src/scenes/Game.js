@@ -93,8 +93,8 @@ export class Game extends Scene {
             levelNumber = parseInt(this.currentLevel.replace('level', '')) || 1;
         }
         
-        // Create the developer help text
-        this.helpText = this.add.text(16, 50, this.getHelpMessage(), {
+        // Create the developer help text (positioned below the menu button)
+        this.helpText = this.add.text(16, 80, this.getHelpMessage(), {
             fontSize: '18px',
             fill: '#ffffff'
         });
@@ -107,6 +107,26 @@ export class Game extends Scene {
             fill: '#ffffff'
         });
         this.timerText.setScrollFactor(0);
+        
+        // Add "Return to Main Menu" button
+        const menuButton = this.add.text(16, 50, 'Return to Main Menu', {
+            fontSize: '14px',
+            fill: '#ffffff',
+            backgroundColor: '#4a4a4a',
+            padding: {
+                left: 8,
+                right: 8,
+                top: 4,
+                bottom: 4
+            }
+        });
+        menuButton.setScrollFactor(0);
+        menuButton.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => menuButton.setStyle({ fill: '#f39c12' }))
+            .on('pointerout', () => menuButton.setStyle({ fill: '#ffffff' }))
+            .on('pointerdown', () => {
+                this.cleanupAndChangeScene('MainMenu');
+            });
 
         // Start the timer
         this.timerEvent = this.time.addEvent({
