@@ -222,7 +222,7 @@ export class Game extends Scene {
     updateDarkness() {
         // Convert the player's world position to tile coordinates
         const playerTile = this.map.worldToTileXY(this.player.x, this.player.y);
-        const visibilityRadius = 5;
+        const visibilityRadius = 8;
         
         this.layer.forEachTile(function(tile) {
             const dist = Phaser.Math.Distance.Snake(playerTile.x, playerTile.y, tile.x, tile.y);
