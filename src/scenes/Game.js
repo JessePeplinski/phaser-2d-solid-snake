@@ -200,6 +200,12 @@ export class Game extends Scene {
 
         this.player.body.setVelocity(velocityX, velocityY);
 
+        // Update player's facing direction only when moving.
+        // This value is later used to shape the visibility cone.
+        if (velocityX !== 0 || velocityY !== 0) {
+            this.player.facingAngle = Phaser.Math.Angle.Between(0, 0, velocityX, velocityY);
+        }
+
         // Update animations based on movement
         if (velocityX < 0) {
             this.player.anims.play('left', true);
@@ -220,14 +226,48 @@ export class Game extends Scene {
     }
 
     updateDarkness() {
-        // Convert the player's world position to tile coordinates
-        const playerTile = this.map.worldToTileXY(this.player.x, this.player.y);
-        const visibilityRadius = 8;
-        
-        this.layer.forEachTile(function(tile) {
-            const dist = Phaser.Math.Distance.Snake(playerTile.x, playerTile.y, tile.x, tile.y);
-            if (dist <= visibilityRadius) {
-                const alpha = Phaser.Math.Clamp(1 - (dist / visibilityRadius), 0, 1);
+        // Define our visibility radii in world pixels.
+        // (Assuming a tile is 16x16 pixels.)
+        const frontRadius = 12 * 16;  // Maximum visibility in the forward direction
+        const sideRadius = 3 * 16;    // Visibility for tiles at 90° (the sides)
+        const behindRadius = 3 * 16;  // Minimal visibility behind the player
+        const defaultRadius = 8 * 16; // Fallback if no facing direction is set
+
+        // Player's current position as a vector.
+        const playerPos = new Phaser.Math.Vector2(this.player.x, this.player.y);
+        // Use the stored facingAngle if available; default to 0.
+        const facingAngle = (this.player.facingAngle !== undefined) ? this.player.facingAngle : 0;
+
+        this.layer.forEachTile((tile) => {
+            // Compute the tile center position in world coordinates.
+            const tileCenterX = tile.pixelX + tile.width / 2;
+            const tileCenterY = tile.pixelY + tile.height / 2;
+            const tilePos = new Phaser.Math.Vector2(tileCenterX, tileCenterY);
+
+            // Calculate vector from the player to this tile.
+            const toTile = tilePos.clone().subtract(playerPos);
+            const distance = toTile.length();
+
+            // Determine the effective visibility radius based on the tile’s angle relative to the player's facing direction.
+            let effectiveRadius;
+            if (this.player.facingAngle !== undefined) {
+                const tileAngle = toTile.angle();
+                let angleDiff = Phaser.Math.Angle.Wrap(tileAngle - facingAngle);
+                angleDiff = Math.abs(angleDiff);
+                if (angleDiff <= Math.PI / 2) {
+                    // For tiles in front (0° to 90°), interpolate from frontRadius down to sideRadius.
+                    effectiveRadius = sideRadius + (frontRadius - sideRadius) * (1 - angleDiff / (Math.PI / 2));
+                } else {
+                    // For tiles behind (90° to 180°), interpolate from sideRadius down to behindRadius.
+                    effectiveRadius = sideRadius + (behindRadius - sideRadius) * ((angleDiff - Math.PI / 2) / (Math.PI / 2));
+                }
+            } else {
+                effectiveRadius = defaultRadius;
+            }
+
+            // Set the tile's alpha based on its distance relative to the effective radius.
+            if (distance <= effectiveRadius) {
+                const alpha = Phaser.Math.Clamp(1 - (distance / effectiveRadius), 0, 1);
                 tile.setAlpha(alpha);
             } else {
                 tile.setAlpha(0);
