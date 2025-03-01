@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Tiled
+phaser-2d-solid-snake.tiled-session
+phaser-2d-solid-snake.tiled-project
