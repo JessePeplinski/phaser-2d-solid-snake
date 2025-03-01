@@ -31,7 +31,13 @@ Can you implement the following:
 Here is the code. 
 
 ## Add Time Limit for the Level
+This code worked as expected. Now, add a time limit that the user has to complete the level. Start with 60 seconds. If the time limit expires, they lose the game. 
 
 ## Add Level Screen
+I want to add a Level screen to my game.
+
+When the "Start Game" button is pressed, bring the user to a new scren that selects a level for them. This will effectively load a different file in `public/assets/tilemaps`. All of my levels follow the convention `level1.csv`, `level2.csv`, `level3.csv`, etc. Once they click on a level, then the level with start. 
+
+Make this dynamic so that whatever number of CSV files I have with my naming convention are present will display that number of levels on the screen. 
 
 ## Add AI
