@@ -11,3 +11,8 @@ Can you update this Main Menu screen in Phaser.js v3.88.2 to include basic "brea
 
 # Question
 Can you add a very simple sort of small shake or rainfall affect on the page? I'm going for a gritty/grainy/cyber-punk feel. Make it very subtle. I don't have any assets on hand to use for this.
+
+# Darkness
+Can you update the darkness mechanic so that the current direction the player is looking is further than the other directions? Then, make the other directions smaller in size to emulate "perception" for the player looking around
+
+This changed worked well. I want to expand this further - there are collision tiles between setCollisionBetween(54, 83) in the tilemap. Can you update the visibility so that nothing can be seen beyond an collision tile?
