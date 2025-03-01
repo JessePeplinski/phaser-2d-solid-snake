@@ -17,13 +17,14 @@ export class Game extends Scene {
         this.minZoom = 0.5;
         this.maxZoom = 2;
         this.zoomFactor = 0.1;
+        this.gameWon = false; // Flag to check if the game has been won
     }
 
     preload() {
         this.load.setPath('assets');
         // Load the tilemap assets
         this.load.image('tiles', 'tilemaps/catastrophi_tiles_16.png');
-        this.load.tilemapCSV('map', '/tilemaps/catastrophi_level2.csv');
+        this.load.tilemapCSV('map', '/tilemaps/level1.csv');
         this.load.spritesheet('player', 'spaceman.png', { frameWidth: 16, frameHeight: 16 });
         // Ensure rexVirtualJoystick plugin is loaded via a script tag or plugin config
     }
@@ -34,6 +35,8 @@ export class Game extends Scene {
         const tileset = this.map.addTilesetImage('tiles');
         this.layer = this.map.createLayer(0, tileset, 0, 0);
         this.map.setCollisionBetween(54, 83);
+        // tile 32 is the player spawn tile
+        // tile 31 is the goal tile
 
         // Create player animations
         this.anims.create({
@@ -61,9 +64,26 @@ export class Game extends Scene {
             repeat: -1
         });
 
-        // Create the player and enable collisions with the layer
-        this.player = this.physics.add.sprite(50, 100, 'player', 1);
+        // Create the player. We start by creating it at (0, 0) then update its position.
+        this.player = this.physics.add.sprite(0, 0, 'player', 1);
         this.physics.add.collider(this.player, this.layer);
+
+        // Find the spawn tile (tile index 32) and position the player there.
+        let spawnTile = null;
+        this.layer.forEachTile(tile => {
+            if (tile.index === 32) {
+                spawnTile = tile;
+            }
+        });
+        if (spawnTile) {
+            this.player.setPosition(
+                spawnTile.pixelX + spawnTile.width / 2,
+                spawnTile.pixelY + spawnTile.height / 2
+            );
+        } else {
+            // Fallback if no spawn tile found
+            this.player.setPosition(50, 100);
+        }
 
         this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
         this.cameras.main.startFollow(this.player);
@@ -166,6 +186,11 @@ export class Game extends Scene {
     }
 
     update(time, delta) {
+        // If the game is already won, skip further updates.
+        if (this.gameWon) {
+            return;
+        }
+
         // Reset player velocity
         this.player.body.setVelocity(0);
 
@@ -201,7 +226,6 @@ export class Game extends Scene {
         this.player.body.setVelocity(velocityX, velocityY);
 
         // Update player's facing direction only when moving.
-        // This value is later used to shape the visibility cone.
         if (velocityX !== 0 || velocityY !== 0) {
             this.player.facingAngle = Phaser.Math.Angle.Between(0, 0, velocityX, velocityY);
         }
@@ -219,6 +243,16 @@ export class Game extends Scene {
             this.player.anims.stop();
         }
 
+        // Check for win condition: if the player is on the goal tile (tile 31)
+        const goalTile = this.layer.getTileAtWorldXY(this.player.x, this.player.y);
+        if (goalTile && goalTile.index === 31) {
+            this.gameWon = true;
+            this.showWinScreen();
+            // Optionally, stop further movement
+            this.player.body.setVelocity(0);
+            return;
+        }
+
         // Update darkness system only if enabled
         if (this.darknessEnabled) {
             this.updateDarkness();
@@ -227,7 +261,6 @@ export class Game extends Scene {
 
     updateDarkness() {
         // Define our visibility radii in world pixels.
-        // (Assuming a tile is 16x16 pixels.)
         const frontRadius = 12 * 16;  // Maximum visibility in the forward direction
         const sideRadius = 3 * 16;    // Visibility for tiles at 90° (the sides)
         const behindRadius = 3 * 16;  // Minimal visibility behind the player
@@ -235,37 +268,30 @@ export class Game extends Scene {
 
         // Player's current position as a vector.
         const playerPos = new Phaser.Math.Vector2(this.player.x, this.player.y);
-        // Use the stored facingAngle if available; default to 0.
         const facingAngle = (this.player.facingAngle !== undefined) ? this.player.facingAngle : 0;
 
         this.layer.forEachTile((tile) => {
-            // Compute the tile center position in world coordinates.
             const tileCenterX = tile.pixelX + tile.width / 2;
             const tileCenterY = tile.pixelY + tile.height / 2;
             const tilePos = new Phaser.Math.Vector2(tileCenterX, tileCenterY);
 
-            // Calculate vector from the player to this tile.
             const toTile = tilePos.clone().subtract(playerPos);
             const distance = toTile.length();
 
-            // Determine the effective visibility radius based on the tile’s angle relative to the player's facing direction.
             let effectiveRadius;
             if (this.player.facingAngle !== undefined) {
                 const tileAngle = toTile.angle();
                 let angleDiff = Phaser.Math.Angle.Wrap(tileAngle - facingAngle);
                 angleDiff = Math.abs(angleDiff);
                 if (angleDiff <= Math.PI / 2) {
-                    // For tiles in front (0° to 90°), interpolate from frontRadius down to sideRadius.
                     effectiveRadius = sideRadius + (frontRadius - sideRadius) * (1 - angleDiff / (Math.PI / 2));
                 } else {
-                    // For tiles behind (90° to 180°), interpolate from sideRadius down to behindRadius.
                     effectiveRadius = sideRadius + (behindRadius - sideRadius) * ((angleDiff - Math.PI / 2) / (Math.PI / 2));
                 }
             } else {
                 effectiveRadius = defaultRadius;
             }
 
-            // Set the tile's alpha based on its distance relative to the effective radius.
             if (distance <= effectiveRadius) {
                 const alpha = Phaser.Math.Clamp(1 - (distance / effectiveRadius), 0, 1);
                 tile.setAlpha(alpha);
@@ -299,5 +325,16 @@ Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
 Press "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}
 Press "D" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
 Press "Z" to reset zoom`;
+    }
+
+    // Display a simple win screen
+    showWinScreen() {
+        const centerX = this.cameras.main.worldView.x + this.cameras.main.worldView.width / 2;
+        const centerY = this.cameras.main.worldView.y + this.cameras.main.worldView.height / 2;
+        const winText = this.add.text(centerX, centerY, 'You won!', {
+            fontSize: '48px',
+            fill: '#ffffff'
+        });
+        winText.setOrigin(0.5);
     }
 }

@@ -16,3 +16,22 @@ Can you add a very simple sort of small shake or rainfall affect on the page? I'
 Can you update the darkness mechanic so that the current direction the player is looking is further than the other directions? Then, make the other directions smaller in size to emulate "perception" for the player looking around
 
 This changed worked well. I want to expand this further - there are collision tiles between setCollisionBetween(54, 83) in the tilemap. Can you update the visibility so that nothing can be seen beyond an collision tile?
+
+# Game Mechanics Implementation
+## Spawn and Goal Tiles
+I need to implement my actual game mechanics. The goal of the game is for the player to make it from their player spawn to the goal tile. 
+
+// tile 32 is the player spawn tile
+// tile 31 is the goal tile
+
+Can you implement the following:
+1. The player needs to spawn on tile 32.
+2. Once the player reaches tile 31, the game has been won. Display a "You won" screen. 
+
+Here is the code. 
+
+## Add Time Limit for the Level
+
+## Add Level Screen
+
+## Add AI
