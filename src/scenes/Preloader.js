@@ -65,9 +65,9 @@ export class Preloader extends Scene
         
         // --- TILEMAPS ---
         // this.load.tilemapCSV('map', 'tilemaps/catastrophi_level2.csv');
-        this.load.tilemapCSV('map', 'tilemaps/level1.csv');
-        this.load.tilemapCSV('map', 'tilemaps/level2.csv');
-        this.load.tilemapCSV('map', 'tilemaps/level3.csv');
+        this.load.tilemapCSV('level1', 'tilemaps/level1.csv');
+        this.load.tilemapCSV('level2', 'tilemaps/level2.csv');
+        this.load.tilemapCSV('level3', 'tilemaps/level3.csv');
         
         // --- AUDIO ---
         // Music

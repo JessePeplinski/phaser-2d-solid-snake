@@ -22,11 +22,25 @@ export class Game extends Scene {
         this.timeLimit = 60;  // 60 seconds to complete the level
         this.timerEvent = null;
         this.timerText = null;
+        this.currentLevel = null; // Store current level key
+    }
+
+    init(data) {
+        // Get level key from scene data (passed from LevelSelect)
+        this.currentLevel = data.levelKey || 'level1'; // Default to level1 if not specified
+        console.log('Loading level:', this.currentLevel);
+        
+        // If level isn't in cache but 'map' is, use that instead
+        if (!this.scene.systems.cache.tilemap.exists(this.currentLevel) && 
+            this.scene.systems.cache.tilemap.exists('map')) {
+            console.log('Level not found in cache. Using "map" instead.');
+            this.currentLevel = 'map';
+        }
     }
 
     create() {
-        // Create the tilemap and store the layer for later use
-        this.map = this.make.tilemap({ key: 'map', tileWidth: 16, tileHeight: 16 });
+        // Create the tilemap using the selected level key
+        this.map = this.make.tilemap({ key: this.currentLevel, tileWidth: 16, tileHeight: 16 });
         const tileset = this.map.addTilesetImage('tiles');
         this.layer = this.map.createLayer(0, tileset, 0, 0);
         this.map.setCollisionBetween(54, 83);
@@ -59,6 +73,9 @@ export class Game extends Scene {
 
         this.debugGraphics = this.add.graphics();
 
+        // Display current level in the UI
+        const levelNumber = parseInt(this.currentLevel.replace('level', ''));
+        
         // Create the developer help text (debug menu), but hide it by default.
         this.helpText = this.add.text(16, 50, this.getHelpMessage(), {
             fontSize: '18px',
@@ -67,8 +84,8 @@ export class Game extends Scene {
         this.helpText.setScrollFactor(0);
         this.helpText.setVisible(false);
 
-        // Create a timer text to display the remaining time (always visible).
-        this.timerText = this.add.text(16, 16, `Time remaining: ${this.timeLimit}`, {
+        // Create a timer text to display the remaining time and current level (always visible).
+        this.timerText = this.add.text(16, 16, `Level ${levelNumber} - Time remaining: ${this.timeLimit}`, {
             fontSize: '18px',
             fill: '#ffffff'
         });
@@ -109,6 +126,11 @@ export class Game extends Scene {
         this.input.keyboard.on('keydown-Z', () => {
             if (!this.helpText.visible) return;
             this.smoothZoomTo(1); // Reset zoom
+        });
+
+        // Add a key to exit to level select screen
+        this.input.keyboard.on('keydown-ESC', () => {
+            this.scene.start('LevelSelect');
         });
 
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -199,8 +221,14 @@ Press "Z" to reset zoom`;
 
         // Update timer text display (calculating remaining seconds)
         if (this.timerEvent) {
+            let levelNumber;
+            if (this.currentLevel === 'map') {
+                levelNumber = 1; // Default level number for 'map' key
+            } else {
+                levelNumber = parseInt(this.currentLevel.replace('level', '')) || 1;
+            }
             const remainingSeconds = Math.ceil((this.timerEvent.delay - this.timerEvent.elapsed) / 1000);
-            this.timerText.setText(`Time remaining: ${remainingSeconds}`);
+            this.timerText.setText(`Level ${levelNumber} - Time remaining: ${remainingSeconds}`);
         }
 
         // Reset player velocity

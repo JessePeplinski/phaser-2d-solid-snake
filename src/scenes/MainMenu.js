@@ -125,7 +125,7 @@ export class MainMenu extends Scene {
         startButton.on('pointerout', () => startButton.setStyle({ fill: '#ffffff' }));
         startButton.on('pointerdown', () => {
             this.music.stop();
-            this.scene.start('Game');
+            this.scene.start('LevelSelect');
         });
         
         // Add sound control button in the top-right corner
