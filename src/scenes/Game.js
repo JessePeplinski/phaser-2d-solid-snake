@@ -1,33 +1,43 @@
 import { Scene } from 'phaser';
+import { gameProgress } from './GameProgress';
 
 export class Game extends Scene {
     constructor() {
         super('Game');
+        this.initialize();
+    }
+
+    // Initialize all class variables
+    initialize() {
         this.showDebug = false;
-        this.darknessEnabled = true; // Flag for enabling/disabling darkness
+        this.darknessEnabled = true;
         this.player = null;
-        this.helpText = null; // Developer debug menu text
+        this.helpText = null;
         this.debugGraphics = null;
         this.cursors = null;
         this.joystick = null;
         this.joystickCursor = null;
         this.map = null;
-        this.layer = null; // Reference to our tilemap layer
+        this.layer = null;
         this.currentZoom = 1;
         this.minZoom = 0.5;
         this.maxZoom = 2;
         this.zoomFactor = 0.1;
-        this.gameWon = false; // Flag for win condition
-        this.gameOver = false; // Flag for overall game over (win or lose)
-        this.timeLimit = 60;  // 60 seconds to complete the level
+        this.gameWon = false;
+        this.gameOver = false;
+        this.timeLimit = 60;
         this.timerEvent = null;
         this.timerText = null;
-        this.currentLevel = null; // Store current level key
+        this.currentLevel = null;
+        this.keyListeners = [];
     }
 
     init(data) {
-        // Get level key from scene data (passed from LevelSelect)
-        this.currentLevel = data.levelKey || 'level1'; // Default to level1 if not specified
+        // Reset all game state variables
+        this.initialize();
+        
+        // Get level key from scene data
+        this.currentLevel = data.levelKey || 'level1';
         console.log('Loading level:', this.currentLevel);
         
         // If level isn't in cache but 'map' is, use that instead
@@ -39,25 +49,24 @@ export class Game extends Scene {
     }
 
     create() {
-        // Create the tilemap using the selected level key
+        // Create the tilemap
         this.map = this.make.tilemap({ key: this.currentLevel, tileWidth: 16, tileHeight: 16 });
         const tileset = this.map.addTilesetImage('tiles');
         this.layer = this.map.createLayer(0, tileset, 0, 0);
         this.map.setCollisionBetween(54, 83);
-        // tile 32 is the player spawn tile
-        // tile 31 is the goal tile
 
-        // Create the player. We start by creating it at (0, 0) then update its position.
+        // Create the player
         this.player = this.physics.add.sprite(0, 0, 'player', 1);
         this.physics.add.collider(this.player, this.layer);
 
-        // Find the spawn tile (tile index 32) and position the player there.
+        // Find the spawn tile and position the player
         let spawnTile = null;
         this.layer.forEachTile(tile => {
             if (tile.index === 32) {
                 spawnTile = tile;
             }
         });
+        
         if (spawnTile) {
             this.player.setPosition(
                 spawnTile.pixelX + spawnTile.width / 2,
@@ -68,15 +77,23 @@ export class Game extends Scene {
             this.player.setPosition(50, 100);
         }
 
+        // Set up camera
         this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
         this.cameras.main.startFollow(this.player);
+        this.cameras.main.setZoom(this.currentZoom);
 
+        // Debug graphics
         this.debugGraphics = this.add.graphics();
 
         // Display current level in the UI
-        const levelNumber = parseInt(this.currentLevel.replace('level', ''));
+        let levelNumber;
+        if (this.currentLevel === 'map') {
+            levelNumber = 1;
+        } else {
+            levelNumber = parseInt(this.currentLevel.replace('level', '')) || 1;
+        }
         
-        // Create the developer help text (debug menu), but hide it by default.
+        // Create the developer help text
         this.helpText = this.add.text(16, 50, this.getHelpMessage(), {
             fontSize: '18px',
             fill: '#ffffff'
@@ -84,55 +101,24 @@ export class Game extends Scene {
         this.helpText.setScrollFactor(0);
         this.helpText.setVisible(false);
 
-        // Create a timer text to display the remaining time and current level (always visible).
+        // Create timer text
         this.timerText = this.add.text(16, 16, `Level ${levelNumber} - Time remaining: ${this.timeLimit}`, {
             fontSize: '18px',
             fill: '#ffffff'
         });
         this.timerText.setScrollFactor(0);
 
-        // Start the 60-second timer
+        // Start the timer
         this.timerEvent = this.time.addEvent({
-            delay: this.timeLimit * 1000, // 60 seconds in milliseconds
+            delay: this.timeLimit * 1000,
             callback: this.onTimeExpired,
             callbackScope: this
         });
 
-        // Toggle the developer debug menu with the backtick (`) key.
-        this.input.keyboard.on('keydown', (event) => {
-            if (event.key === '`') {
-                this.helpText.visible = !this.helpText.visible;
-                if (this.helpText.visible) {
-                    this.updateHelpText();
-                }
-            }
-        });
-
-        // The following keys only work if the dev menu (helpText) is visible.
-        this.input.keyboard.on('keydown-C', () => {
-            if (!this.helpText.visible) return;
-            this.showDebug = !this.showDebug;
-            this.drawDebug();
-        });
-
-        this.input.keyboard.on('keydown-D', () => {
-            if (!this.helpText.visible) return;
-            this.darknessEnabled = !this.darknessEnabled;
-            if (!this.darknessEnabled) {
-                this.resetDarkness();
-            }
-        });
-
-        this.input.keyboard.on('keydown-Z', () => {
-            if (!this.helpText.visible) return;
-            this.smoothZoomTo(1); // Reset zoom
-        });
-
-        // Add a key to exit to level select screen
-        this.input.keyboard.on('keydown-ESC', () => {
-            this.scene.start('LevelSelect');
-        });
-
+        // Set up keyboard input
+        this.setupKeyboardInput();
+        
+        // Set up cursor keys
         this.cursors = this.input.keyboard.createCursorKeys();
 
         // Create virtual joystick for touch devices
@@ -150,13 +136,95 @@ export class Game extends Scene {
             }
             this.smoothZoomTo(targetZoom);
         });
+        
+        // Initialize darkness if enabled
+        if (this.darknessEnabled) {
+            this.updateDarkness();
+        }
+    }
+    
+    // Set up keyboard event listeners
+    setupKeyboardInput() {
+        // Toggle debug menu
+        const toggleDebugListener = (event) => {
+            if (event.key === '`') {
+                this.helpText.visible = !this.helpText.visible;
+                if (this.helpText.visible) {
+                    this.updateHelpText();
+                }
+            }
+        };
+        this.input.keyboard.on('keydown', toggleDebugListener);
+        this.keyListeners.push({ event: 'keydown', handler: toggleDebugListener });
+
+        // Toggle debug visuals
+        const toggleDebugVisualsListener = () => {
+            if (!this.helpText.visible) return;
+            this.showDebug = !this.showDebug;
+            this.drawDebug();
+        };
+        this.input.keyboard.on('keydown-C', toggleDebugVisualsListener);
+        this.keyListeners.push({ event: 'keydown-C', handler: toggleDebugVisualsListener });
+
+        // Toggle darkness
+        const toggleDarknessListener = () => {
+            if (!this.helpText.visible) return;
+            this.darknessEnabled = !this.darknessEnabled;
+            if (!this.darknessEnabled) {
+                this.resetDarkness();
+            }
+        };
+        this.input.keyboard.on('keydown-D', toggleDarknessListener);
+        this.keyListeners.push({ event: 'keydown-D', handler: toggleDarknessListener });
+
+        // Reset zoom
+        const resetZoomListener = () => {
+            if (!this.helpText.visible) return;
+            this.smoothZoomTo(1);
+        };
+        this.input.keyboard.on('keydown-Z', resetZoomListener);
+        this.keyListeners.push({ event: 'keydown-Z', handler: resetZoomListener });
+
+        // Exit to level select
+        const exitToLevelSelectListener = () => {
+            this.cleanupAndChangeScene('LevelSelect');
+        };
+        this.input.keyboard.on('keydown-ESC', exitToLevelSelectListener);
+        this.keyListeners.push({ event: 'keydown-ESC', handler: exitToLevelSelectListener });
+    }
+    
+    // Properly clean up resources before changing scenes
+    cleanupAndChangeScene(sceneName, data = {}) {
+        // Remove all keyboard listeners
+        for (const listener of this.keyListeners) {
+            this.input.keyboard.off(listener.event, listener.handler);
+        }
+        this.keyListeners = [];
+        
+        // Clear any timers
+        if (this.timerEvent) {
+            this.timerEvent.remove();
+            this.timerEvent = null;
+        }
+        
+        // Destroy the joystick if it exists
+        if (this.joystick) {
+            this.joystick.destroy();
+            this.joystick = null;
+            this.joystickCursor = null;
+        }
+        
+        // Start the new scene
+        this.scene.start(sceneName, data);
     }
     
     createVirtualJoystick() {
-        const margin = 20; // margin from the screen edges
+        const margin = 20;
         const radius = 50;
         const gameWidth = Number(this.sys.game.config.width);
         const gameHeight = Number(this.sys.game.config.height);
+        
+        // Create a new joystick
         this.joystick = this.plugins.get('rexVirtualJoystick').add(this, {
             x: gameWidth - margin - radius,
             y: gameHeight - margin - radius,
@@ -164,6 +232,7 @@ export class Game extends Scene {
             base: this.add.circle(0, 0, radius, 0x888888),
             thumb: this.add.circle(0, 0, radius * 0.5, 0xcccccc)
         }).setScrollFactor(0);
+        
         this.joystickCursor = this.joystick.createCursorKeys();
     }
     
@@ -214,16 +283,16 @@ Press "Z" to reset zoom`;
     }
 
     update(time, delta) {
-        // Stop update loop if the game is over (win or lose)
+        // Stop update loop if the game is over
         if (this.gameOver) {
             return;
         }
 
-        // Update timer text display (calculating remaining seconds)
+        // Update timer text
         if (this.timerEvent) {
             let levelNumber;
             if (this.currentLevel === 'map') {
-                levelNumber = 1; // Default level number for 'map' key
+                levelNumber = 1;
             } else {
                 levelNumber = parseInt(this.currentLevel.replace('level', '')) || 1;
             }
@@ -238,18 +307,19 @@ Press "Z" to reset zoom`;
         let velocityY = 0;
         
         // Keyboard input
-        if (this.cursors.left.isDown) {
+        if (this.cursors && this.cursors.left && this.cursors.left.isDown) {
             velocityX = -100;
-        } else if (this.cursors.right.isDown) {
+        } else if (this.cursors && this.cursors.right && this.cursors.right.isDown) {
             velocityX = 100;
         }
-        if (this.cursors.up.isDown) {
+        
+        if (this.cursors && this.cursors.up && this.cursors.up.isDown) {
             velocityY = -100;
-        } else if (this.cursors.down.isDown) {
+        } else if (this.cursors && this.cursors.down && this.cursors.down.isDown) {
             velocityY = 100;
         }
         
-        // Virtual joystick input (if available)
+        // Virtual joystick input
         if (this.joystickCursor) {
             if (this.joystickCursor.left.isDown) {
                 velocityX = -100;
@@ -263,14 +333,15 @@ Press "Z" to reset zoom`;
             }
         }
 
+        // Set player velocity
         this.player.body.setVelocity(velocityX, velocityY);
 
-        // Update player's facing direction only when moving.
+        // Update player's facing direction
         if (velocityX !== 0 || velocityY !== 0) {
             this.player.facingAngle = Phaser.Math.Angle.Between(0, 0, velocityX, velocityY);
         }
 
-        // Update animations based on movement
+        // Update animations
         if (velocityX < 0) {
             this.player.anims.play('left', true);
         } else if (velocityX > 0) {
@@ -283,17 +354,21 @@ Press "Z" to reset zoom`;
             this.player.anims.stop();
         }
 
-        // Check for win condition: if the player is on the goal tile (tile 31)
+        // Check for win condition
         const goalTile = this.layer.getTileAtWorldXY(this.player.x, this.player.y);
         if (goalTile && goalTile.index === 31) {
             this.gameOver = true;
             this.gameWon = true;
+            
+            // Track progress
+            gameProgress.completeLevel(this.currentLevel);
+            
             this.showWinScreen();
             this.player.body.setVelocity(0);
             return;
         }
 
-        // Update darkness system only if enabled
+        // Update darkness
         if (this.darknessEnabled) {
             this.updateDarkness();
         }
@@ -303,17 +378,16 @@ Press "Z" to reset zoom`;
         if (!this.gameWon && !this.gameOver) {
             this.gameOver = true;
             this.showLoseScreen();
-            // Stop player movement
             this.player.body.setVelocity(0);
         }
     }
 
     updateDarkness() {
-        // Define our visibility radii in world pixels.
-        const frontRadius = 12 * 16;  // Maximum visibility in the forward direction
-        const sideRadius = 3 * 16;    // Visibility for tiles at 90° (the sides)
-        const behindRadius = 3 * 16;  // Minimal visibility behind the player
-        const defaultRadius = 8 * 16; // Fallback if no facing direction is set
+        // Define visibility radii
+        const frontRadius = 12 * 16;
+        const sideRadius = 3 * 16;
+        const behindRadius = 3 * 16;
+        const defaultRadius = 8 * 16;
 
         const playerPos = new Phaser.Math.Vector2(this.player.x, this.player.y);
         const facingAngle = (this.player.facingAngle !== undefined) ? this.player.facingAngle : 0;
@@ -369,25 +443,184 @@ Press "Z" to reset zoom`;
         }
     }
 
-    // Display a simple win screen
+    // Win screen
     showWinScreen() {
-        const centerX = this.cameras.main.worldView.x + this.cameras.main.worldView.width / 2;
-        const centerY = this.cameras.main.worldView.y + this.cameras.main.worldView.height / 2;
-        const winText = this.add.text(centerX, centerY, 'You won!', {
-            fontSize: '48px',
-            fill: '#ffffff'
-        });
-        winText.setOrigin(0.5);
+        const { width, height } = this.cameras.main;
+        const centerX = this.cameras.main.worldView.x + width / 2;
+        const centerY = this.cameras.main.worldView.y + height / 2;
+        const baseWidth = 800;
+        const scaleFactor = width / baseWidth;
+        
+        // Create background
+        const overlay = this.add.rectangle(
+            centerX, 
+            centerY, 
+            width, 
+            height, 
+            0x000000, 
+            0.7
+        );
+        
+        // Win message
+        const winText = this.add.text(centerX, centerY - 100 * scaleFactor, 'Level Complete!', {
+            fontFamily: 'Arial Black',
+            fontSize: `${48 * scaleFactor}px`,
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 6 * scaleFactor
+        }).setOrigin(0.5);
+        
+        // Get current level number
+        let currentLevelNum;
+        if (this.currentLevel === 'map') {
+            currentLevelNum = 1;
+        } else {
+            currentLevelNum = parseInt(this.currentLevel.replace('level', '')) || 1;
+        }
+        
+        // Check if next level exists
+        const nextLevelNum = currentLevelNum + 1;
+        const nextLevelKey = `level${nextLevelNum}`;
+        const nextLevelExists = this.cache.tilemap.exists(nextLevelKey);
+        
+        const buttonStyle = {
+            fontFamily: 'Arial Black',
+            fontSize: `${24 * scaleFactor}px`,
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 4 * scaleFactor,
+            backgroundColor: '#4a4a4a',
+            padding: {
+                left: 16 * scaleFactor,
+                right: 16 * scaleFactor,
+                top: 8 * scaleFactor,
+                bottom: 8 * scaleFactor
+            }
+        };
+        
+        // Next level button
+        if (nextLevelExists) {
+            const nextLevelButton = this.add.text(centerX, centerY, `Next Level`, buttonStyle).setOrigin(0.5);
+            
+            nextLevelButton.setInteractive({ useHandCursor: true })
+                .on('pointerover', () => nextLevelButton.setStyle({ color: '#f39c12' }))
+                .on('pointerout', () => nextLevelButton.setStyle({ color: '#ffffff' }))
+                .on('pointerdown', () => {
+                    this.cleanupAndChangeScene('Game', { levelKey: nextLevelKey });
+                });
+        }
+        
+        // Level select button
+        const levelSelectButton = this.add.text(
+            centerX, 
+            centerY + (nextLevelExists ? 60 : 0) * scaleFactor, 
+            'Level Select', 
+            buttonStyle
+        ).setOrigin(0.5);
+        
+        levelSelectButton.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => levelSelectButton.setStyle({ color: '#f39c12' }))
+            .on('pointerout', () => levelSelectButton.setStyle({ color: '#ffffff' }))
+            .on('pointerdown', () => {
+                this.cleanupAndChangeScene('LevelSelect');
+            });
+        
+        // Main menu button
+        const mainMenuButton = this.add.text(
+            centerX, 
+            centerY + (nextLevelExists ? 120 : 60) * scaleFactor, 
+            'Main Menu', 
+            buttonStyle
+        ).setOrigin(0.5);
+        
+        mainMenuButton.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => mainMenuButton.setStyle({ color: '#f39c12' }))
+            .on('pointerout', () => mainMenuButton.setStyle({ color: '#ffffff' }))
+            .on('pointerdown', () => {
+                this.cleanupAndChangeScene('MainMenu');
+            });
     }
 
-    // Display a simple lose screen
+    // Lose screen
     showLoseScreen() {
-        const centerX = this.cameras.main.worldView.x + this.cameras.main.worldView.width / 2;
-        const centerY = this.cameras.main.worldView.y + this.cameras.main.worldView.height / 2;
-        const loseText = this.add.text(centerX, centerY, 'You lost!', {
-            fontSize: '48px',
-            fill: '#ffffff'
-        });
-        loseText.setOrigin(0.5);
+        const { width, height } = this.cameras.main;
+        const centerX = this.cameras.main.worldView.x + width / 2;
+        const centerY = this.cameras.main.worldView.y + height / 2;
+        const baseWidth = 800;
+        const scaleFactor = width / baseWidth;
+        
+        // Create background
+        const overlay = this.add.rectangle(
+            centerX, 
+            centerY, 
+            width, 
+            height, 
+            0x000000, 
+            0.7
+        );
+        
+        // Lose message
+        const loseText = this.add.text(centerX, centerY - 100 * scaleFactor, 'Time\'s Up!', {
+            fontFamily: 'Arial Black',
+            fontSize: `${48 * scaleFactor}px`,
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 6 * scaleFactor
+        }).setOrigin(0.5);
+        
+        const buttonStyle = {
+            fontFamily: 'Arial Black',
+            fontSize: `${24 * scaleFactor}px`,
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 4 * scaleFactor,
+            backgroundColor: '#4a4a4a',
+            padding: {
+                left: 16 * scaleFactor,
+                right: 16 * scaleFactor,
+                top: 8 * scaleFactor,
+                bottom: 8 * scaleFactor
+            }
+        };
+        
+        // Retry button
+        const retryButton = this.add.text(centerX, centerY, 'Retry Level', buttonStyle).setOrigin(0.5);
+        
+        retryButton.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => retryButton.setStyle({ color: '#f39c12' }))
+            .on('pointerout', () => retryButton.setStyle({ color: '#ffffff' }))
+            .on('pointerdown', () => {
+                this.cleanupAndChangeScene('Game', { levelKey: this.currentLevel });
+            });
+        
+        // Level select button
+        const levelSelectButton = this.add.text(
+            centerX, 
+            centerY + 60 * scaleFactor, 
+            'Level Select', 
+            buttonStyle
+        ).setOrigin(0.5);
+        
+        levelSelectButton.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => levelSelectButton.setStyle({ color: '#f39c12' }))
+            .on('pointerout', () => levelSelectButton.setStyle({ color: '#ffffff' }))
+            .on('pointerdown', () => {
+                this.cleanupAndChangeScene('LevelSelect');
+            });
+        
+        // Main menu button
+        const mainMenuButton = this.add.text(
+            centerX, 
+            centerY + 120 * scaleFactor, 
+            'Main Menu', 
+            buttonStyle
+        ).setOrigin(0.5);
+        
+        mainMenuButton.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => mainMenuButton.setStyle({ color: '#f39c12' }))
+            .on('pointerout', () => mainMenuButton.setStyle({ color: '#ffffff' }))
+            .on('pointerdown', () => {
+                this.cleanupAndChangeScene('MainMenu');
+            });
     }
 }

@@ -42,7 +42,10 @@ Make this account for whatever number of CSV files I have. When files are added 
 
 Do not upload anything else yet - I want to get this code working then we can move on to "Next Level" and additional options. 
 
-## Add AI
+-- 
+I can click on the start game then one of my levels and I can play it just fine. However after I finish a level and I click the “Next level” button, I see the new map generated but I can't move anywhere on the map. The same thing is true if I go to the main menu screen from completing a level and then try to select on the level it's the same issue. I'm not seeing any console errors. The log does say loading level with the correct level. I can clearly see that on the screen but something with my game loop or something is broken and I can't move anywhere. I can however toggle the debug menu and use C key and the zoom reset key along with my mouse wheel to scroll. The darkness effect is also broken - I can’t turn it on and off and there is no darkness when I try to go to the next level. These issues occur on desktop and mobile.
 
 # Preloader
 I don't think that I'm using my Preloader.js in the best way yet to load all my assets. Can you make sure my assets are all loaded from this file and use the best practices for loading assets? I assume a loading progress indicator would be helpful here, too.
+
+## Add AI

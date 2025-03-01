@@ -1,4 +1,5 @@
 import { Scene } from 'phaser';
+import { gameProgress } from './GameProgress';
 
 export class LevelSelect extends Scene {
     constructor() {
@@ -116,16 +117,40 @@ export class LevelSelect extends Scene {
             
             // Get level number from filename
             const levelNumber = parseInt(this.levelFiles[i].replace('level', ''));
+            const levelKey = this.levelFiles[i];
+            
+            // Check if this level is unlocked
+            const isUnlocked = gameProgress.isLevelUnlocked(levelKey);
+            const isCompleted = gameProgress.getCompletedLevels().includes(levelKey);
+            
+            // Set color based on status
+            let buttonColor, buttonBgColor, buttonText;
+            if (isCompleted) {
+                // Completed levels - green tint
+                buttonColor = '#ffffff';
+                buttonBgColor = '#2ecc71';
+                buttonText = `✓ Level ${levelNumber}`;
+            } else if (isUnlocked) {
+                // Unlocked but not completed - normal
+                buttonColor = '#ffffff';
+                buttonBgColor = '#4a4a4a';
+                buttonText = `Level ${levelNumber}`;
+            } else {
+                // Locked levels - darker with lock icon
+                buttonColor = '#999999';
+                buttonBgColor = '#2d2d2d';
+                buttonText = `🔒 Level ${levelNumber}`;
+            }
             
             // Create the button
-            const button = this.add.text(buttonX, buttonY, `Level ${levelNumber}`, {
+            const button = this.add.text(buttonX, buttonY, buttonText, {
                 fontFamily: 'Arial Black',
                 fontSize: `${24 * scaleFactor}px`,
-                color: '#ffffff',
+                color: buttonColor,
                 stroke: '#000000',
                 strokeThickness: 4 * scaleFactor,
                 align: 'center',
-                backgroundColor: '#4a4a4a',
+                backgroundColor: buttonBgColor,
                 padding: {
                     left: 16 * scaleFactor,
                     right: 16 * scaleFactor,
@@ -134,11 +159,13 @@ export class LevelSelect extends Scene {
                 }
             }).setOrigin(0.5);
             
-            // Add interaction
-            button.setInteractive({ useHandCursor: true })
-                .on('pointerover', () => button.setStyle({ color: '#f39c12' }))
-                .on('pointerout', () => button.setStyle({ color: '#ffffff' }))
-                .on('pointerdown', () => this.startLevel(this.levelFiles[i]));
+            // Only add interaction if the level is unlocked
+            if (isUnlocked) {
+                button.setInteractive({ useHandCursor: true })
+                    .on('pointerover', () => button.setStyle({ color: '#f39c12' }))
+                    .on('pointerout', () => button.setStyle({ color: buttonColor }))
+                    .on('pointerdown', () => this.startLevel(levelKey));
+            }
             
             this.buttons.push(button);
         }
@@ -163,6 +190,27 @@ export class LevelSelect extends Scene {
             .on('pointerover', () => backButton.setStyle({ color: '#f39c12' }))
             .on('pointerout', () => backButton.setStyle({ color: '#ffffff' }))
             .on('pointerdown', () => this.scene.start('MainMenu'));
+            
+        // Add a reset progress button (for testing)
+        const resetButton = this.add.text(width - 20, height - 20, '🔄 Reset Progress', {
+            fontFamily: 'Arial',
+            fontSize: `${16 * scaleFactor}px`,
+            color: '#aaaaaa',
+            stroke: '#000000',
+            strokeThickness: 2 * scaleFactor,
+        }).setOrigin(1, 1);
+        
+        resetButton.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => {
+                resetButton.setStyle({ color: '#f39c12' });
+            })
+            .on('pointerout', () => {
+                resetButton.setStyle({ color: '#aaaaaa' });
+            })
+            .on('pointerdown', () => {
+                gameProgress.reset();
+                this.scene.restart();
+            });
     }
     
     startLevel(levelKey) {
