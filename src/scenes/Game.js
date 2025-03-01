@@ -6,7 +6,7 @@ export class Game extends Scene {
         this.showDebug = false;
         this.darknessEnabled = true; // Flag for enabling/disabling darkness
         this.player = null;
-        this.helpText = null;
+        this.helpText = null; // Developer debug menu text
         this.debugGraphics = null;
         this.cursors = null;
         this.joystick = null;
@@ -17,7 +17,11 @@ export class Game extends Scene {
         this.minZoom = 0.5;
         this.maxZoom = 2;
         this.zoomFactor = 0.1;
-        this.gameWon = false; // Flag to check if the game has been won
+        this.gameWon = false; // Flag for win condition
+        this.gameOver = false; // Flag for overall game over (win or lose)
+        this.timeLimit = 60;  // 60 seconds to complete the level
+        this.timerEvent = null;
+        this.timerText = null;
     }
 
     preload() {
@@ -90,28 +94,64 @@ export class Game extends Scene {
 
         this.debugGraphics = this.add.graphics();
 
-        // Toggle debug visuals using "C"
+        // Create the developer help text (debug menu), but hide it by default.
+        this.helpText = this.add.text(16, 50, this.getHelpMessage(), {
+            fontSize: '18px',
+            fill: '#ffffff'
+        });
+        this.helpText.setScrollFactor(0);
+        this.helpText.setVisible(false);
+
+        // Create a timer text to display the remaining time (always visible).
+        this.timerText = this.add.text(16, 16, `Time remaining: ${this.timeLimit}`, {
+            fontSize: '18px',
+            fill: '#ffffff'
+        });
+        this.timerText.setScrollFactor(0);
+
+        // Start the 60-second timer
+        this.timerEvent = this.time.addEvent({
+            delay: this.timeLimit * 1000, // 60 seconds in milliseconds
+            callback: this.onTimeExpired,
+            callbackScope: this
+        });
+
+        // Toggle the developer debug menu with the backtick (`) key.
+        this.input.keyboard.on('keydown', (event) => {
+            if (event.key === '`') {
+                this.helpText.visible = !this.helpText.visible;
+                if (this.helpText.visible) {
+                    this.updateHelpText();
+                }
+            }
+        });
+
+        // The following keys only work if the dev menu (helpText) is visible.
         this.input.keyboard.on('keydown-C', () => {
+            if (!this.helpText.visible) return;
             this.showDebug = !this.showDebug;
             this.drawDebug();
         });
 
-        // Toggle the darkness system using "D"
         this.input.keyboard.on('keydown-D', () => {
+            if (!this.helpText.visible) return;
             this.darknessEnabled = !this.darknessEnabled;
             if (!this.darknessEnabled) {
                 this.resetDarkness();
             }
-            this.updateHelpText();
+        });
+
+        this.input.keyboard.on('keydown-Z', () => {
+            if (!this.helpText.visible) return;
+            this.smoothZoomTo(1); // Reset zoom
         });
 
         this.cursors = this.input.keyboard.createCursorKeys();
 
-        this.helpText = this.add.text(16, 16, this.getHelpMessage(), {
-            fontSize: '18px',
-            fill: '#ffffff'
-        });
-        this.helpText.setScale(1 / this.currentZoom);
+        // Create virtual joystick for touch devices
+        if (this.sys.game.device.input.touch) {
+            this.createVirtualJoystick();
+        }
 
         // Mouse wheel zoom listener
         this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
@@ -123,15 +163,6 @@ export class Game extends Scene {
             }
             this.smoothZoomTo(targetZoom);
         });
-
-        this.input.keyboard.on('keydown-Z', () => {
-            this.smoothZoomTo(1); // Reset zoom
-        });
-
-        // Create virtual joystick for touch devices
-        if (this.sys.game.device.input.touch) {
-            this.createVirtualJoystick();
-        }
     }
     
     createVirtualJoystick() {
@@ -153,8 +184,9 @@ export class Game extends Scene {
         if (this.currentZoom < this.maxZoom) {
             this.currentZoom += this.zoomFactor;
             this.cameras.main.setZoom(this.currentZoom);
-            this.helpText.setScale(1 / this.currentZoom);
-            this.updateHelpText();
+            if (this.helpText.visible) {
+                this.updateHelpText();
+            }
         }
     }
     
@@ -162,8 +194,9 @@ export class Game extends Scene {
         if (this.currentZoom > this.minZoom) {
             this.currentZoom -= this.zoomFactor;
             this.cameras.main.setZoom(this.currentZoom);
-            this.helpText.setScale(1 / this.currentZoom);
-            this.updateHelpText();
+            if (this.helpText.visible) {
+                this.updateHelpText();
+            }
         }
     }
 
@@ -173,22 +206,36 @@ export class Game extends Scene {
             targets: this.cameras.main,
             zoom: targetZoom,
             duration: 200,
-            ease: 'Sine.easeOut',
-            onUpdate: () => {
-                this.helpText.setScale(1 / this.cameras.main.zoom);
-            }
+            ease: 'Sine.easeOut'
         });
         this.currentZoom = targetZoom;
+        if (this.helpText.visible) {
+            this.updateHelpText();
+        }
     }
     
     updateHelpText() {
         this.helpText.setText(this.getHelpMessage());
     }
 
+    getHelpMessage() {
+        return `Use the arrow keys on desktop or virtual joystick on mobile to move.
+Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
+Press "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}
+Press "D" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
+Press "Z" to reset zoom`;
+    }
+
     update(time, delta) {
-        // If the game is already won, skip further updates.
-        if (this.gameWon) {
+        // Stop update loop if the game is over (win or lose)
+        if (this.gameOver) {
             return;
+        }
+
+        // Update timer text display (calculating remaining seconds)
+        if (this.timerEvent) {
+            const remainingSeconds = Math.ceil((this.timerEvent.delay - this.timerEvent.elapsed) / 1000);
+            this.timerText.setText(`Time remaining: ${remainingSeconds}`);
         }
 
         // Reset player velocity
@@ -246,9 +293,9 @@ export class Game extends Scene {
         // Check for win condition: if the player is on the goal tile (tile 31)
         const goalTile = this.layer.getTileAtWorldXY(this.player.x, this.player.y);
         if (goalTile && goalTile.index === 31) {
+            this.gameOver = true;
             this.gameWon = true;
             this.showWinScreen();
-            // Optionally, stop further movement
             this.player.body.setVelocity(0);
             return;
         }
@@ -259,6 +306,15 @@ export class Game extends Scene {
         }
     }
 
+    onTimeExpired() {
+        if (!this.gameWon && !this.gameOver) {
+            this.gameOver = true;
+            this.showLoseScreen();
+            // Stop player movement
+            this.player.body.setVelocity(0);
+        }
+    }
+
     updateDarkness() {
         // Define our visibility radii in world pixels.
         const frontRadius = 12 * 16;  // Maximum visibility in the forward direction
@@ -266,7 +322,6 @@ export class Game extends Scene {
         const behindRadius = 3 * 16;  // Minimal visibility behind the player
         const defaultRadius = 8 * 16; // Fallback if no facing direction is set
 
-        // Player's current position as a vector.
         const playerPos = new Phaser.Math.Vector2(this.player.x, this.player.y);
         const facingAngle = (this.player.facingAngle !== undefined) ? this.player.facingAngle : 0;
 
@@ -316,15 +371,9 @@ export class Game extends Scene {
                 faceColor: new Phaser.Display.Color(40, 39, 37, 255)
             });
         }
-        this.updateHelpText();
-    }
-
-    getHelpMessage() {
-        return `Use the arrow keys on desktop or virtual joystick on mobile to move.
-Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
-Press "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}
-Press "D" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
-Press "Z" to reset zoom`;
+        if (this.helpText.visible) {
+            this.updateHelpText();
+        }
     }
 
     // Display a simple win screen
@@ -336,5 +385,16 @@ Press "Z" to reset zoom`;
             fill: '#ffffff'
         });
         winText.setOrigin(0.5);
+    }
+
+    // Display a simple lose screen
+    showLoseScreen() {
+        const centerX = this.cameras.main.worldView.x + this.cameras.main.worldView.width / 2;
+        const centerY = this.cameras.main.worldView.y + this.cameras.main.worldView.height / 2;
+        const loseText = this.add.text(centerX, centerY, 'You lost!', {
+            fontSize: '48px',
+            fill: '#ffffff'
+        });
+        loseText.setOrigin(0.5);
     }
 }
