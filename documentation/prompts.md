@@ -48,4 +48,10 @@ I can click on the start game then one of my levels and I can play it just fine.
 # Preloader
 I don't think that I'm using my Preloader.js in the best way yet to load all my assets. Can you make sure my assets are all loaded from this file and use the best practices for loading assets? I assume a loading progress indicator would be helpful here, too.
 
+# Question
+On mobile, I scale down my resolution so that everything fits and sizes to the users device. However, I'm noticing scaling everything makes the text pretty distorted along with the Game screen itself.
+
+Do you have suggestions on how I can improve this?
+
 ## Add AI
+Now that I have basic game elements implemented, I want to add a basic AI system. The AI should look just like the player. 
