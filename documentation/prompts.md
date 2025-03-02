@@ -65,8 +65,10 @@ I will use tile 33 in my code to specify the AI spawn points. When they spawn, t
 The player should also be able to see the AI's vision as well. Make this the same way as we did the darkness, but make it a slightly yellow cone so it's clear to the user what the line of sight for the AI is. 
 
 ## Patrol Paths
-I want to implement patrol paths for more deterministic movement. Therefore, I have specified another tile in my game, 34, that will be a fully connected path from their spawn point. Can you implement this? If they try to pursue the player, keep having them do so, but once they lose line of sight, have them return to this path.
+I want to implement AI patrol paths for more deterministic movement. Therefore, I have specified another tile in my game, 34, that will be a fully connected path from their spawn point.
 
-Assume the AI will always spawn somewhere within the fully connected path (tile 34). When the AI patrols, they should follow the fully connected path for their patrol. Can you make this change?
+If the AI tries to pursue the player, keep having them do so, but once they their lose line of sight, have them return to this path after a few moments. 
 
- It should just follow the actual path where all tiles are 34 for the patrol.
+Assume the AI's spawn tile (tile 33) will alwaysbe somewhere within the path. When the AI patrols, they should follow the fully connected path for their patrol.
+
+In the case the path is a square or rectangle path (which it often will be) the AI should not have a draw path within the square, it's path should be the perimeter of the rectangle or square. 
