@@ -27,10 +27,23 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         this.patrolPath = [];
         this.currentPatrolPointIndex = 0;
         this.patrolDirection = 1; // 1 for forward, -1 for backward
-        this.patrolSpeed = 80; // Increased patrol speed for more natural movement
-        this.waitAtPatrolPoint = false;
-        this.waitTimer = 0;
-        this.waitDuration = 500; // Reduced wait time at patrol points (500ms)
+        this.patrolSpeed = 60; // Reduced patrol speed for more natural patrolling
+        
+        // Remove wait variables to create continuous movement
+        // this.waitAtPatrolPoint = false;
+        // this.waitTimer = 0;
+        // this.waitDuration = 500;
+        
+        // Variables for smooth turning
+        this.turnSpeed = 0.05; // How quickly to change direction (in radians per frame)
+        this.targetAngle = 0; // The angle we're trying to face
+        this.movementLerpFactor = 0.2; // For smoother acceleration/deceleration
+        this.currentVelocity = new Phaser.Math.Vector2(0, 0);
+        
+        // Path progress tracking for fluid movement
+        this.pathProgress = 0; // 0 to 1 progress between current and next point
+        this.pathSegmentLength = 0; // Length of current path segment
+        this.lookAheadDistance = 16; // Distance to look ahead for turns
         
         // Set a tint color to distinguish from player (slightly reddish)
         this.setTint(0xff9999);
@@ -86,12 +99,80 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         // Find nearest patrol point to start from
         this.currentPatrolPointIndex = this.findClosestPathPointIndex();
         
+        // Calculate initial path segment length
+        this.updatePathSegmentLength();
+        
         console.log(`Created patrol path with ${this.patrolPath.length} points`);
         
         // Debug log the first few points
         if (this.patrolPath.length > 0) {
             console.log('First patrol point:', this.patrolPath[0]);
         }
+    }
+    
+    // Calculate the length of the current path segment
+    updatePathSegmentLength() {
+        if (this.patrolPath.length < 2) return;
+        
+        const currentPoint = this.patrolPath[this.currentPatrolPointIndex];
+        const nextIndex = this.getNextPatrolPointIndex();
+        const nextPoint = this.patrolPath[nextIndex];
+        
+        this.pathSegmentLength = Phaser.Math.Distance.Between(
+            currentPoint.x, currentPoint.y,
+            nextPoint.x, nextPoint.y
+        );
+    }
+    
+    // Get the index of the next patrol point
+    getNextPatrolPointIndex() {
+        if (this.patrolPath.length <= 1) return 0;
+        
+        // Calculate next index based on current direction
+        let nextIndex = this.currentPatrolPointIndex + this.patrolDirection;
+        
+        // First determine if this is a closed loop path (rectangle/square)
+        const isClosedLoop = this.isClosedLoopPath();
+        
+        // Handle wrapping around the path
+        if (nextIndex >= this.patrolPath.length) {
+            // For closed loop paths (like rectangles), loop back to the start
+            if (isClosedLoop) {
+                nextIndex = 0;
+            } else {
+                // For open paths, we'll reverse direction at the end
+                nextIndex = this.patrolPath.length - 2;
+                if (nextIndex < 0) nextIndex = 0; // Safety check
+            }
+        } else if (nextIndex < 0) {
+            // For closed loop paths, loop to the end
+            if (isClosedLoop) {
+                nextIndex = this.patrolPath.length - 1;
+            } else {
+                // For open paths, we'll reverse direction at the start
+                nextIndex = 1;
+                if (nextIndex >= this.patrolPath.length) nextIndex = this.patrolPath.length - 1; // Safety check
+            }
+        }
+        
+        return nextIndex;
+    }
+    
+    // Check if the path forms a closed loop (e.g., rectangle or square)
+    isClosedLoopPath() {
+        if (this.patrolPath.length <= 2) return false;
+        
+        // Check distance between first and last points
+        const firstPoint = this.patrolPath[0];
+        const lastPoint = this.patrolPath[this.patrolPath.length - 1];
+        
+        const distance = Phaser.Math.Distance.Between(
+            firstPoint.x, firstPoint.y,
+            lastPoint.x, lastPoint.y
+        );
+        
+        // If the first and last points are close enough, it's a closed loop
+        return distance <= 32; // Within 2 tiles
     }
     
     // Check if path tiles form a rectangle
@@ -165,25 +246,25 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             // For smaller rectangles, use more detailed perimeter
             
             // Top edge (left to right)
-            for (let x = minX; x <= maxX; x += 1) {
+            for (let x = minX; x <= maxX; x += 2) { // Skip every other tile for smoother movement
                 const tile = findTileAt(x, minY);
                 if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
             }
             
             // Right edge (top to bottom)
-            for (let y = minY + 1; y <= maxY; y += 1) {
+            for (let y = minY + 2; y <= maxY; y += 2) { // Skip every other tile
                 const tile = findTileAt(maxX, y);
                 if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
             }
             
             // Bottom edge (right to left)
-            for (let x = maxX - 1; x >= minX; x -= 1) {
+            for (let x = maxX - 2; x >= minX; x -= 2) { // Skip every other tile
                 const tile = findTileAt(x, maxY);
                 if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
             }
             
             // Left edge (bottom to top)
-            for (let y = maxY - 1; y > minY; y -= 1) {
+            for (let y = maxY - 2; y > minY; y -= 2) { // Skip every other tile
                 const tile = findTileAt(minX, y);
                 if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
             }
@@ -293,7 +374,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
     }
     
     update(time, delta, player) {
-        // Reset velocity
+        // Reset velocity for this frame
         this.body.setVelocity(0);
         
         const playerPos = new Phaser.Math.Vector2(player.x, player.y);
@@ -321,6 +402,8 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 if (this.patrolPath.length > 0) {
                     this.state = 'patrol';
                     this.currentPatrolPointIndex = this.findClosestPathPointIndex();
+                    this.updatePathSegmentLength();
+                    this.pathProgress = 0;
                 } else {
                     this.state = 'wander';
                 }
@@ -338,7 +421,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 }
                 break;
             case 'patrol':
-                this.followPatrolPath(delta);
+                this.followPatrolPathContinuous(delta);
                 break;
             case 'wander':
                 this.wander(time, delta);
@@ -407,65 +490,111 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         }
     }
     
-    followPatrolPath(delta) {
-        if (this.patrolPath.length === 0) {
+    // New method for continuous patrol movement
+    followPatrolPathContinuous(delta) {
+        if (this.patrolPath.length <= 1) {
             this.state = 'wander';
             return;
         }
         
-        // Get current patrol target
-        const currentTarget = this.patrolPath[this.currentPatrolPointIndex];
+        // Get current and next patrol points
+        const currentIndex = this.currentPatrolPointIndex;
+        const nextIndex = this.getNextPatrolPointIndex();
         
-        // Check if we're waiting at this patrol point
-        if (this.waitAtPatrolPoint) {
-            this.waitTimer += delta;
-            if (this.waitTimer >= this.waitDuration) {
-                this.waitAtPatrolPoint = false;
-                this.waitTimer = 0;
+        const currentPoint = this.patrolPath[currentIndex];
+        const nextPoint = this.patrolPath[nextIndex];
+        
+        // Calculate direction to move
+        const dx = nextPoint.x - currentPoint.x;
+        const dy = nextPoint.y - currentPoint.y;
+        
+        // Update the AI's position along the path based on progress
+        this.pathProgress += (this.patrolSpeed * delta) / (1000 * this.pathSegmentLength);
+        
+        // Check if we've reached the next point
+        if (this.pathProgress >= 1) {
+            // Move to next point
+            this.currentPatrolPointIndex = nextIndex;
+            this.pathProgress = 0;
+            this.updatePathSegmentLength();
+            
+            // Check if we're at an endpoint of the path
+            const isEndPoint = this.currentPatrolPointIndex === 0 || 
+                              this.currentPatrolPointIndex === this.patrolPath.length - 1;
+            
+            // For paths with more than 2 points that are NOT rectangles/squares,
+            // reverse direction at endpoints
+            if (this.patrolPath.length > 2 && isEndPoint) {
+                // Check if this is a rectangle/square path by checking if the first and
+                // last points of the path are connected (making a loop)
+                const firstPoint = this.patrolPath[0];
+                const lastPoint = this.patrolPath[this.patrolPath.length - 1];
+                const distance = Phaser.Math.Distance.Between(
+                    firstPoint.x, firstPoint.y,
+                    lastPoint.x, lastPoint.y
+                );
                 
-                // Move to next patrol point
-                this.updatePatrolIndex();
+                // If the first and last points are far apart, it's not a loop
+                // so we should reverse direction
+                if (distance > 32) { // More than 2 tiles apart
+                    this.patrolDirection *= -1;
+                } else if (this.currentPatrolPointIndex === this.patrolPath.length - 1) {
+                    // We're at the end of a loop, so go back to index 0 instead of reversing
+                    this.currentPatrolPointIndex = 0;
+                    this.updatePathSegmentLength();
+                }
             }
-            return;
         }
         
-        // Move to current patrol point
-        const distance = Phaser.Math.Distance.Between(
-            this.x, this.y,
-            currentTarget.x, currentTarget.y
+        // Look ahead to the next point for smoother turns
+        const lookAheadProgress = Math.min(this.pathProgress + this.lookAheadDistance / this.pathSegmentLength, 1);
+        const targetX = currentPoint.x + dx * lookAheadProgress;
+        const targetY = currentPoint.y + dy * lookAheadProgress;
+        
+        // Calculate direction to the interpolated position
+        const direction = new Phaser.Math.Vector2(
+            targetX - this.x, 
+            targetY - this.y
         );
         
-        // Only wait at points if the path is long enough
-        const shouldWaitAtPoints = this.patrolPath.length > 4;
-        
-        if (distance < 8) { // Increased threshold for reaching a point
-            if (shouldWaitAtPoints) {
-                // Reached patrol point, wait briefly (only on longer paths)
-                this.waitAtPatrolPoint = true;
-                this.waitTimer = 0;
-            } else {
-                // For short paths, immediately move to next point
-                this.updatePatrolIndex();
-            }
-        } else {
-            // Move towards patrol point with the patrol speed
-            this.moveToPosition(currentTarget, this.patrolSpeed);
+        // If we're close to the target, slow down slightly for smoother movement
+        let speedMultiplier = 1;
+        if (direction.length() < 10) {
+            speedMultiplier = 0.5 + (direction.length() / 20); // 0.5 to 1.0 based on distance
         }
-    }
-    
-    updatePatrolIndex() {
-        if (this.patrolPath.length <= 1) return;
         
-        // Move to next point based on patrol direction
-        this.currentPatrolPointIndex += this.patrolDirection;
-        
-        // Check bounds and reverse direction if needed
-        if (this.currentPatrolPointIndex >= this.patrolPath.length) {
-            this.currentPatrolPointIndex = this.patrolPath.length - 2;
-            this.patrolDirection = -1;
-        } else if (this.currentPatrolPointIndex < 0) {
-            this.currentPatrolPointIndex = 1;
-            this.patrolDirection = 1;
+        if (direction.length() > 2) {
+            direction.normalize();
+            
+            // Update facing angle smoothly
+            const targetAngle = direction.angle();
+            this.facingAngle = Phaser.Math.Angle.RotateTo(
+                this.facingAngle,
+                targetAngle,
+                this.turnSpeed * delta / 16
+            );
+            
+            // Set velocity directly toward the target with smooth acceleration
+            const targetVelocity = new Phaser.Math.Vector2(
+                direction.x * this.patrolSpeed * speedMultiplier,
+                direction.y * this.patrolSpeed * speedMultiplier
+            );
+            
+            // Smoothly interpolate current velocity toward target velocity
+            this.currentVelocity.x = Phaser.Math.Linear(
+                this.currentVelocity.x, 
+                targetVelocity.x, 
+                this.movementLerpFactor
+            );
+            
+            this.currentVelocity.y = Phaser.Math.Linear(
+                this.currentVelocity.y, 
+                targetVelocity.y, 
+                this.movementLerpFactor
+            );
+            
+            // Apply velocity
+            this.body.setVelocity(this.currentVelocity.x, this.currentVelocity.y);
         }
     }
     
@@ -592,28 +721,42 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             
             this.graphics.strokePath();
             
-            // Highlight current target point with a larger circle
-            if (this.currentPatrolPointIndex < this.patrolPath.length) {
-                const currentTarget = this.patrolPath[this.currentPatrolPointIndex];
+            // Get current and next points
+            const currentPoint = this.patrolPath[this.currentPatrolPointIndex];
+            const nextIndex = this.getNextPatrolPointIndex();
+            const nextPoint = this.patrolPath[nextIndex];
+            
+            // Draw current path segment with a different color
+            this.graphics.lineStyle(3, 0x00ffff, 0.7);
+            this.graphics.beginPath();
+            this.graphics.moveTo(currentPoint.x, currentPoint.y);
+            this.graphics.lineTo(nextPoint.x, nextPoint.y);
+            this.graphics.strokePath();
+            
+            // Draw interpolated target (where AI is heading)
+            if (this.state === 'patrol') {
+                const dx = nextPoint.x - currentPoint.x;
+                const dy = nextPoint.y - currentPoint.y;
+                const targetX = currentPoint.x + dx * this.pathProgress;
+                const targetY = currentPoint.y + dy * this.pathProgress;
                 
-                // Add a highlight for the current target point
-                this.graphics.fillStyle(0x00ff00, 0.7);
-                this.graphics.fillCircle(currentTarget.x, currentTarget.y, 6);
-                
-                // Add a highlight for the AI's current state
-                let stateColor;
-                switch (this.state) {
-                    case 'chase': stateColor = 0xff0000; break; // Red for chase
-                    case 'patrol': stateColor = 0x00ff00; break; // Green for patrol
-                    case 'returnToPath': stateColor = 0xffff00; break; // Yellow for return
-                    case 'wander': stateColor = 0x0000ff; break; // Blue for wander
-                    default: stateColor = 0xffffff; break; // White for unknown
-                }
-                
-                // Draw a state indicator above the AI
-                this.graphics.fillStyle(stateColor, 0.8);
-                this.graphics.fillCircle(this.x, this.y - 20, 4);
+                this.graphics.fillStyle(0x00ffff, 0.7);
+                this.graphics.fillCircle(targetX, targetY, 4);
             }
+            
+            // Add a highlight for the AI's current state
+            let stateColor;
+            switch (this.state) {
+                case 'chase': stateColor = 0xff0000; break; // Red for chase
+                case 'patrol': stateColor = 0x00ff00; break; // Green for patrol
+                case 'returnToPath': stateColor = 0xffff00; break; // Yellow for return
+                case 'wander': stateColor = 0x0000ff; break; // Blue for wander
+                default: stateColor = 0xffffff; break; // White for unknown
+            }
+            
+            // Draw a state indicator above the AI
+            this.graphics.fillStyle(stateColor, 0.8);
+            this.graphics.fillCircle(this.x, this.y - 20, 4);
         }
     }
     
