@@ -3,7 +3,7 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "assets/tilemaps/level1.tmx",
+    "activeFile": "assets/tilemaps/level2.tmx",
     "expandedProjectPaths": [
         ".",
         "assets",
@@ -20,11 +20,11 @@
             }
         },
         "assets/tilemaps/level2.tmx": {
-            "scale": 0.7800390624999999,
+            "scale": 2,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": -127.55771445740902,
-                "y": -639.711552907006
+                "x": -293,
+                "y": -712.5
             }
         },
         "assets/tilemaps/level3.tmx": {
@@ -57,12 +57,14 @@
     "map.tileWidth": 16,
     "openFiles": [
         "assets/tilemaps/level1.tmx",
-        "assets/tilemaps/tileset.tsx"
+        "assets/tilemaps/tileset.tsx",
+        "assets/tilemaps/level2.tmx"
     ],
     "project": "phaser-2d-solid-snake.tiled-project",
     "recentFiles": [
-        "assets/tilemaps/tileset.tsx",
         "assets/tilemaps/level1.tmx",
+        "assets/tilemaps/tileset.tsx",
+        "assets/tilemaps/level2.tmx",
         "level1.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",

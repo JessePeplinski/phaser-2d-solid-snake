@@ -88,6 +88,9 @@ export class Game extends Scene {
         // Debug graphics
         this.debugGraphics = this.add.graphics();
 
+        // Create a graphics object for visualizing patrol paths
+        this.patrolPathGraphics = this.add.graphics();
+
         // Display current level in the UI
         let levelNumber;
         if (this.currentLevel === 'map') {
@@ -169,6 +172,26 @@ export class Game extends Scene {
         this.spawnEnemies();
     }
     
+    // New toggle debug function for more effective debug toggling
+    toggleDebug() {
+        this.showDebug = !this.showDebug;
+        
+        // Force redraw debug graphics
+        this.drawDebug();
+        
+        // Update help text if visible
+        if (this.helpText.visible) {
+            this.updateHelpText();
+        }
+        
+        // Force the enemies to update their vision cones which also draws patrol paths
+        this.enemies.forEach(enemy => {
+            enemy.updateVisionCone();
+        });
+        
+        console.log(`Debug mode: ${this.showDebug ? 'ON' : 'OFF'}`);
+    }
+    
     // Set up keyboard event listeners
     setupKeyboardInput() {
         // Toggle debug menu
@@ -186,8 +209,7 @@ export class Game extends Scene {
         // Toggle debug visuals
         const toggleDebugVisualsListener = () => {
             if (!this.helpText.visible) return;
-            this.showDebug = !this.showDebug;
-            this.drawDebug();
+            this.toggleDebug();
         };
         this.input.keyboard.on('keydown-C', toggleDebugVisualsListener);
         this.keyListeners.push({ event: 'keydown-C', handler: toggleDebugVisualsListener });
@@ -302,8 +324,78 @@ export class Game extends Scene {
         }
     }
     
+    // Method to visualize patrol paths:
+    visualizePatrolPaths() {
+        this.patrolPathGraphics.clear();
+        
+        // Only show if debug is enabled
+        if (!this.showDebug) {
+            return;
+        }
+        
+        // Collect all patrol tiles
+        const patrolTiles = [];
+        this.layer.forEachTile(tile => {
+            if (tile.index === 34) {
+                patrolTiles.push({
+                    x: tile.pixelX + tile.width / 2,
+                    y: tile.pixelY + tile.height / 2,
+                    pixelX: tile.pixelX,
+                    pixelY: tile.pixelY,
+                    width: tile.width,
+                    height: tile.height
+                });
+            }
+        });
+        
+        // Draw tiles with high-visibility colors
+        this.patrolPathGraphics.lineStyle(2, 0xff00ff, 0.8); // Bright magenta outline
+        this.patrolPathGraphics.fillStyle(0x00ff00, 0.4);    // Bright green fill with transparency
+        
+        patrolTiles.forEach(tile => {
+            // Draw as a rectangle matching the tile size
+            this.patrolPathGraphics.strokeRect(
+                tile.pixelX, tile.pixelY, 
+                tile.width, tile.height
+            );
+            this.patrolPathGraphics.fillRect(
+                tile.pixelX, tile.pixelY, 
+                tile.width, tile.height
+            );
+        });
+        
+        // Add visual connections between tiles to show the path
+        if (patrolTiles.length > 1) {
+            this.patrolPathGraphics.lineStyle(2, 0xffff00, 0.6); // Yellow line
+            this.patrolPathGraphics.beginPath();
+            this.patrolPathGraphics.moveTo(patrolTiles[0].x, patrolTiles[0].y);
+            
+            for (let i = 1; i < patrolTiles.length; i++) {
+                this.patrolPathGraphics.lineTo(patrolTiles[i].x, patrolTiles[i].y);
+            }
+            
+            // Connect back to the first point
+            this.patrolPathGraphics.lineTo(patrolTiles[0].x, patrolTiles[0].y);
+            this.patrolPathGraphics.strokePath();
+        }
+    }
+    
     updateHelpText() {
-        this.helpText.setText(this.getHelpMessage());
+        let aiStates = '';
+        if (this.enemies.length > 0) {
+            const states = this.enemies.map(enemy => enemy.state);
+            const stateCount = {};
+            states.forEach(state => {
+                stateCount[state] = (stateCount[state] || 0) + 1;
+            });
+            
+            aiStates = '\nAI States: ' + 
+                Object.entries(stateCount)
+                    .map(([state, count]) => `${state}=${count}`)
+                    .join(', ');
+        }
+        
+        this.helpText.setText(this.getHelpMessage() + aiStates);
     }
 
     getHelpMessage() {
@@ -312,13 +404,19 @@ Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
 Press "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}
 Press "D" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
 Press "Z" to reset zoom
-Enemies: ${this.enemies.length}`;
+Enemies: ${this.enemies.length}
+AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!`;
     }
 
     update(time, delta) {
         // Stop update loop if the game is over
         if (this.gameOver) {
             return;
+        }
+
+        // Call this in the update method:
+        if (this.showDebug) {
+            this.visualizePatrolPaths();
         }
 
         // Update timer text
@@ -416,24 +514,71 @@ Enemies: ${this.enemies.length}`;
         this.enemies.forEach(enemy => enemy.destroy());
         this.enemies = [];
         
+        console.log('Looking for enemy spawn points (tile index 33)...');
+        
+        // First collect all patrol tiles for debugging
+        const patrolTiles = [];
+        this.layer.forEachTile(tile => {
+            if (tile.index === 34) {
+                patrolTiles.push({
+                    x: tile.x,
+                    y: tile.y,
+                    pixelX: tile.pixelX,
+                    pixelY: tile.pixelY
+                });
+            }
+        });
+        console.log(`Found ${patrolTiles.length} patrol tiles (index 34)`);
+        
         // Look for enemy spawn points (tile index 33)
+        let spawnPoints = [];
         this.layer.forEachTile(tile => {
             if (tile.index === 33) {
-                const enemy = new AI(
-                    this,
-                    tile.pixelX + tile.width / 2,
-                    tile.pixelY + tile.height / 2
-                );
-                
-                // Add collision with the map
-                this.physics.add.collider(enemy, this.layer);
-                
-                // Store reference to the enemy
-                this.enemies.push(enemy);
+                spawnPoints.push({
+                    x: tile.pixelX + tile.width / 2,
+                    y: tile.pixelY + tile.height / 2,
+                    tileX: tile.x,
+                    tileY: tile.y
+                });
             }
         });
         
-        console.log(`Spawned ${this.enemies.length} enemies`);
+        console.log(`Found ${spawnPoints.length} enemy spawn points (tile index 33)`);
+        
+        // Create enemies at each spawn point
+        spawnPoints.forEach((spawn, index) => {
+            const enemy = new AI(this, spawn.x, spawn.y);
+            
+            // Add collision with the map
+            this.physics.add.collider(enemy, this.layer);
+            
+            // Store reference to the enemy
+            this.enemies.push(enemy);
+            
+            console.log(`Created enemy ${index + 1} at position (${spawn.x}, ${spawn.y})`);
+        });
+        
+        // If no enemies were created but we have patrol paths, create at least one enemy
+        // (This is useful for testing when no spawn points are available)
+        if (this.enemies.length === 0 && patrolTiles.length > 0) {
+            // Place the enemy at the first patrol tile
+            const firstPatrol = patrolTiles[0];
+            const enemy = new AI(
+                this,
+                firstPatrol.pixelX + 8, // Center of tile
+                firstPatrol.pixelY + 8  // Center of tile
+            );
+            
+            // Add collision with the map
+            this.physics.add.collider(enemy, this.layer);
+            
+            // Store reference to the enemy
+            this.enemies.push(enemy);
+            
+            console.log('No enemy spawn points found. Created fallback enemy at first patrol point.');
+        }
+        
+        console.log(`Total enemies spawned: ${this.enemies.length}`);
     }
 
     // Update all enemies in the scene
@@ -604,13 +749,43 @@ Enemies: ${this.enemies.length}`;
 
     drawDebug() {
         this.debugGraphics.clear();
+        
         if (this.showDebug) {
+            // Draw collision tiles
             this.map.renderDebug(this.debugGraphics, {
                 tileColor: null,
                 collidingTileColor: new Phaser.Display.Color(243, 134, 48, 200),
                 faceColor: new Phaser.Display.Color(40, 39, 37, 255)
             });
+            
+            // Visualize patrol paths
+            this.visualizePatrolPaths();
+            
+            // Draw player position debug info
+            this.debugGraphics.lineStyle(2, 0x00ffff, 1);
+            this.debugGraphics.strokeCircle(this.player.x, this.player.y, 16);
+            
+            // Draw a line showing player facing direction
+            if (this.player.facingAngle !== undefined) {
+                const dirLength = 32;
+                const dirX = this.player.x + Math.cos(this.player.facingAngle) * dirLength;
+                const dirY = this.player.y + Math.sin(this.player.facingAngle) * dirLength;
+                
+                this.debugGraphics.lineStyle(2, 0x00ffff, 1);
+                this.debugGraphics.beginPath();
+                this.debugGraphics.moveTo(this.player.x, this.player.y);
+                this.debugGraphics.lineTo(dirX, dirY);
+                this.debugGraphics.strokePath();
+            }
+            
+            // Draw enemy detection ranges
+            this.enemies.forEach(enemy => {
+                // Draw capture range
+                this.debugGraphics.lineStyle(1, 0xff0000, 0.5);
+                this.debugGraphics.strokeCircle(enemy.x, enemy.y, this.captureDistance);
+            });
         }
+        
         if (this.helpText.visible) {
             this.updateHelpText();
         }
