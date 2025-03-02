@@ -72,3 +72,10 @@ If the AI tries to pursue the player, keep having them do so, but once they thei
 Assume the AI's spawn tile (tile 33) will alwaysbe somewhere within the path. When the AI patrols, they should follow the fully connected path for their patrol.
 
 In the case the path is a square or rectangle path (which it often will be) the AI should not have a draw path within the square, it's path should be the perimeter of the rectangle or square. 
+
+# AI
+This code is now working.
+
+I need another change - the movement of the AI still does not feel very natural. AI currently goes to a tile, stop for a moment, then go to the next tile in their path.
+
+The movement should feel more natural, meaning they should not stop for a moment on each tile. The AI needs to have continuous movement. 
