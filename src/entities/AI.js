@@ -9,30 +9,56 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         scene.physics.add.existing(this);
         
         // Set up basic properties
-        this.speed = 70; // Slightly slower than player's speed of 100
-        this.visionRadius = 10 * 16; // Vision range (10 tiles)
+        this.speed = 70; // Base speed
+        this.visionRadius = 10 * 16; // Default vision range (10 tiles)
         this.visionAngle = Math.PI / 2; // 90 degrees field of view
         this.facingAngle = 0;
         this.sightLine = null;
         this.graphics = scene.add.graphics();
         
-        // State variables
-        this.state = 'patrol'; // 'patrol', 'chase', or 'returnToPath'
-        this.playerSpotted = false;
-        this.lastKnownPlayerPos = null;
-        this.timeWithoutPlayerSight = 0;
-        this.timeUntilReturnToPath = 3000; // Wait 3 seconds before returning to path
+        // Alert state system
+        this.alertStates = {
+            PATROL: 'patrol',      // Normal patrol behavior
+            SUSPICIOUS: 'suspicious', // Heard something or briefly saw player
+            SEARCHING: 'searching',   // Actively searching an area
+            ALERT: 'alert',        // Player spotted, actively chasing
+            RETURNING: 'returning'  // Returning to patrol after losing player
+        };
+        
+        // Initialize state as patrolling
+        this.alertState = this.alertStates.PATROL;
+        this.alertLevel = 0; // 0 to 100 representing suspicion level
+        this.alertCooldown = 0; // Cooldown timer for reducing alert level
+        this.alertIncreaseRate = 40; // How quickly alert level increases when player seen
+        this.alertDecreaseRate = 5;  // How quickly alert level decreases when player lost
+        
+        // Memory system
+        this.playerMemory = {
+            lastKnownPosition: null,
+            lastSeenTime: 0, 
+            investigationPoints: [], // List of points to check when searching
+            currentInvestigationPoint: 0,
+            memoryDuration: 10000, // How long in ms to remember player position
+            investigationRadius: 48 // Radius to search around last known position
+        };
+        
+        // Alert indicator
+        this.alertIndicator = scene.add.text(0, 0, '', {
+            fontFamily: 'Arial',
+            fontSize: '16px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 3,
+            align: 'center'
+        });
+        this.alertIndicator.setOrigin(0.5, 0.5);
+        this.alertIndicator.setVisible(false);
         
         // Patrol variables
         this.patrolPath = [];
         this.currentPatrolPointIndex = 0;
         this.patrolDirection = 1; // 1 for forward, -1 for backward
         this.patrolSpeed = 60; // Reduced patrol speed for more natural patrolling
-        
-        // Remove wait variables to create continuous movement
-        // this.waitAtPatrolPoint = false;
-        // this.waitTimer = 0;
-        // this.waitDuration = 500;
         
         // Variables for smooth turning
         this.turnSpeed = 0.05; // How quickly to change direction (in radians per frame)
@@ -44,6 +70,18 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         this.pathProgress = 0; // 0 to 1 progress between current and next point
         this.pathSegmentLength = 0; // Length of current path segment
         this.lookAheadDistance = 16; // Distance to look ahead for turns
+        
+        // Timing variables for state changes
+        this.stateTimer = 0;
+        this.timeInState = 0;
+        this.waitTimer = 0;
+        this.waitDuration = 0;
+        this.isWaiting = false;
+        
+        // Wander variables
+        this.wanderDirection = new Phaser.Math.Vector2(0, 0);
+        this.wanderTimer = 0;
+        this.wanderChangeTime = 2000;
         
         // Set a tint color to distinguish from player (slightly reddish)
         this.setTint(0xff9999);
@@ -69,7 +107,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         
         if (patrolTiles.length === 0) {
             console.log('No patrol path tiles found. Using wander behavior.');
-            this.state = 'wander';
+            this.alertState = this.alertStates.PATROL;
             this.wanderDirection = new Phaser.Math.Vector2(0, 0);
             this.wanderTimer = 0;
             this.wanderChangeTime = 2000;
@@ -377,54 +415,114 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         // Reset velocity for this frame
         this.body.setVelocity(0);
         
-        const playerPos = new Phaser.Math.Vector2(player.x, player.y);
-        const aiPos = new Phaser.Math.Vector2(this.x, this.y);
+        // Update timers
+        this.timeInState += delta;
+        if (this.isWaiting) {
+            this.waitTimer += delta;
+            if (this.waitTimer >= this.waitDuration) {
+                this.isWaiting = false;
+                this.waitTimer = 0;
+            }
+        }
         
-        // Check if player is in vision cone
-        const wasPlayerSpotted = this.playerSpotted;
-        this.playerSpotted = this.canSeePlayer(player);
+        // Position alert indicator above AI
+        this.alertIndicator.setPosition(this.x, this.y - 30);
         
-        // State transitions based on player visibility
-        if (this.playerSpotted) {
-            this.state = 'chase';
-            this.lastKnownPlayerPos = playerPos.clone();
-            this.timeWithoutPlayerSight = 0;
-        } else if (wasPlayerSpotted && !this.playerSpotted) {
-            // Player just went out of sight
-            this.timeWithoutPlayerSight = 0;
-            this.state = 'returnToPath';
-        } else if (this.state === 'returnToPath') {
-            // Update time since player was last seen
-            this.timeWithoutPlayerSight += delta;
-            
-            // Check if we should return to patrol path
-            if (this.timeWithoutPlayerSight >= this.timeUntilReturnToPath) {
-                if (this.patrolPath.length > 0) {
-                    this.state = 'patrol';
-                    this.currentPatrolPointIndex = this.findClosestPathPointIndex();
-                    this.updatePathSegmentLength();
-                    this.pathProgress = 0;
-                } else {
-                    this.state = 'wander';
+        // Process alert state system
+        this.updateAlertState(time, delta, player);
+        
+        // Update memory system
+        this.updateMemory(time, delta, player);
+        
+        // Process alert level cooldown
+        if (this.alertCooldown > 0) {
+            this.alertCooldown -= delta;
+            if (this.alertCooldown <= 0) {
+                this.alertCooldown = 0;
+                // Decrease alert level over time if not seeing player
+                if (!this.canSeePlayer(player) && this.alertLevel > 0) {
+                    this.alertLevel = Math.max(0, this.alertLevel - (this.alertDecreaseRate * delta / 1000));
+                    
+                    // Transition to lower alert states based on alert level
+                    this.updateAlertStateBasedOnLevel();
                 }
             }
         }
         
         // State machine for AI behavior
-        switch (this.state) {
-            case 'chase':
-                this.chasePlayer(this.lastKnownPlayerPos);
-                break;
-            case 'returnToPath':
-                if (this.lastKnownPlayerPos) {
-                    this.moveToPosition(this.lastKnownPlayerPos, this.speed * 0.8);
+        switch (this.alertState) {
+            case this.alertStates.PATROL:
+                if (this.patrolPath.length > 0) {
+                    this.followPatrolPathContinuous(delta);
+                } else {
+                    this.wander(time, delta);
                 }
                 break;
-            case 'patrol':
-                this.followPatrolPathContinuous(delta);
+                
+            case this.alertStates.SUSPICIOUS:
+                // Look towards the suspicious position or continue patrol with caution
+                if (this.playerMemory.lastKnownPosition) {
+                    this.lookTowardsPosition(this.playerMemory.lastKnownPosition);
+                    
+                    // After brief pause, resume patrol or become more alert
+                    if (this.timeInState > 3000) {
+                        if (this.alertLevel > 50) {
+                            // Transition to searching if suspicion is high
+                            this.setAlertState(this.alertStates.SEARCHING);
+                            this.generateSearchPoints(this.playerMemory.lastKnownPosition);
+                        } else {
+                            // Return to patrol if just briefly suspicious
+                            this.setAlertState(this.alertStates.PATROL);
+                        }
+                    }
+                } else {
+                    // If no last known position, return to patrol
+                    this.setAlertState(this.alertStates.PATROL);
+                }
                 break;
-            case 'wander':
-                this.wander(time, delta);
+                
+            case this.alertStates.SEARCHING:
+                // Search around the last known player position
+                if (this.playerMemory.investigationPoints.length > 0) {
+                    this.searchArea();
+                } else if (this.timeInState > 8000) {
+                    // Give up searching after a while
+                    this.setAlertState(this.alertStates.RETURNING);
+                }
+                break;
+                
+            case this.alertStates.ALERT:
+                // Actively chase the player
+                if (this.playerMemory.lastKnownPosition) {
+                    this.chasePlayer(this.playerMemory.lastKnownPosition);
+                }
+                break;
+                
+            case this.alertStates.RETURNING:
+                // Return to patrol path
+                if (this.patrolPath.length > 0) {
+                    // Find the nearest patrol point
+                    const closestIndex = this.findClosestPathPointIndex();
+                    const target = this.patrolPath[closestIndex];
+                    
+                    const distToPath = Phaser.Math.Distance.Between(
+                        this.x, this.y, target.x, target.y
+                    );
+                    
+                    if (distToPath < 16) {
+                        // Reached patrol path, resume normal patrol
+                        this.currentPatrolPointIndex = closestIndex;
+                        this.updatePathSegmentLength();
+                        this.pathProgress = 0;
+                        this.setAlertState(this.alertStates.PATROL);
+                    } else {
+                        // Move towards the patrol path
+                        this.moveToPosition(target, this.patrolSpeed * 0.8);
+                    }
+                } else {
+                    // No patrol path, just go back to wandering
+                    this.setAlertState(this.alertStates.PATROL);
+                }
                 break;
         }
         
@@ -433,6 +531,321 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         
         // Update vision cone
         this.updateVisionCone();
+    }
+    
+    // Update alert state based on player visibility and alert level
+    updateAlertState(time, delta, player) {
+        const canSeePlayerNow = this.canSeePlayer(player);
+        
+        // If player is visible, increase alert level and take appropriate action
+        if (canSeePlayerNow) {
+            // Update last known position
+            this.playerMemory.lastKnownPosition = new Phaser.Math.Vector2(player.x, player.y);
+            this.playerMemory.lastSeenTime = time;
+            
+            // Increase alert level
+            this.alertLevel = Math.min(100, this.alertLevel + (this.alertIncreaseRate * delta / 1000));
+            this.alertCooldown = 500; // Small cooldown before alert level starts decreasing
+            
+            // Update alert state based on alert level
+            if (this.alertLevel >= 80) {
+                if (this.alertState !== this.alertStates.ALERT) {
+                    this.setAlertState(this.alertStates.ALERT);
+                }
+            } else if (this.alertLevel >= 40) {
+                if (this.alertState !== this.alertStates.SUSPICIOUS && 
+                    this.alertState !== this.alertStates.ALERT) {
+                    this.setAlertState(this.alertStates.SUSPICIOUS);
+                }
+            }
+        } else if (this.alertState === this.alertStates.ALERT) {
+            // Lost sight of player while in alert mode
+            // Calculate time since last saw player
+            const timeSinceLastSeen = time - this.playerMemory.lastSeenTime;
+            
+            // If it's been a while since we saw the player, transition to searching
+            if (timeSinceLastSeen > 1000) {
+                this.setAlertState(this.alertStates.SEARCHING);
+                // Generate search points around last known position
+                this.generateSearchPoints(this.playerMemory.lastKnownPosition);
+            }
+        }
+        
+        // Update alert indicator
+        this.updateAlertIndicator();
+    }
+    
+    // Update the AI state based on current alert level
+    updateAlertStateBasedOnLevel() {
+        if (this.alertLevel < 10) {
+            // Almost no alert, return to patrol
+            if (this.alertState !== this.alertStates.PATROL) {
+                this.setAlertState(this.alertStates.PATROL);
+            }
+        } else if (this.alertLevel < 40) {
+            // Low alert, but still suspicious or returning to patrol
+            if (this.alertState === this.alertStates.ALERT || 
+                this.alertState === this.alertStates.SEARCHING) {
+                this.setAlertState(this.alertStates.RETURNING);
+            }
+        }
+    }
+    
+    // Set a new alert state and reset state timer
+    setAlertState(newState) {
+        // Don't change if already in this state
+        if (this.alertState === newState) return;
+        
+        const oldState = this.alertState;
+        this.alertState = newState;
+        this.timeInState = 0;
+        
+        // Log state change for debugging
+        console.log(`AI state change: ${oldState} -> ${newState}`);
+        
+        // Handle state entry actions
+        switch (newState) {
+            case this.alertStates.PATROL:
+                // Clear all investigation points and alert indicators when returning to patrol
+                this.playerMemory.investigationPoints = [];
+                this.alertLevel = 0; // Reset alert level
+                // Update the alert indicator immediately
+                this.updateAlertIndicator();
+                break;
+                
+            case this.alertStates.SUSPICIOUS:
+                // Brief pause when becoming suspicious
+                this.isWaiting = true;
+                this.waitTimer = 0;
+                this.waitDuration = 1000;
+                break;
+                
+            case this.alertStates.SEARCHING:
+                // Generate search points if not already done
+                if (this.playerMemory.investigationPoints.length === 0 && 
+                    this.playerMemory.lastKnownPosition) {
+                    this.generateSearchPoints(this.playerMemory.lastKnownPosition);
+                }
+                this.isWaiting = false; // Ensure we're not stuck waiting
+                break;
+                
+            case this.alertStates.RETURNING:
+                // Clear investigation points
+                this.playerMemory.investigationPoints = [];
+                break;
+        }
+    }
+    
+    // Update memory and last known player information
+    updateMemory(time, delta, player) {
+        // Check if memory of player position should expire
+        if (this.playerMemory.lastKnownPosition) {
+            const timeSinceLastSeen = time - this.playerMemory.lastSeenTime;
+            
+            // Forget player's position after memory duration
+            if (timeSinceLastSeen > this.playerMemory.memoryDuration) {
+                this.playerMemory.lastKnownPosition = null;
+                
+                // If we were searching, return to patrol
+                if (this.alertState === this.alertStates.SEARCHING || 
+                    this.alertState === this.alertStates.ALERT) {
+                    this.setAlertState(this.alertStates.RETURNING);
+                }
+            }
+        }
+    }
+    
+    // Generate points to search around the last known player position
+    // Improved search point generation to ensure AI actually has points to check
+    generateSearchPoints(position) {
+        if (!position) return;
+        
+        const points = [];
+        const radius = this.playerMemory.investigationRadius;
+        const numPoints = 5; // Number of search points to generate
+        
+        // Add the center point (last known position)
+        points.push(new Phaser.Math.Vector2(position.x, position.y));
+        
+        // Generate points in a circular pattern around the center
+        for (let i = 0; i < numPoints; i++) {
+            const angle = (i / numPoints) * Math.PI * 2;
+            const distance = Phaser.Math.Between(radius/2, radius);
+            
+            const x = position.x + Math.cos(angle) * distance;
+            const y = position.y + Math.sin(angle) * distance;
+            
+            // Make sure the point is within the map bounds
+            const newPoint = new Phaser.Math.Vector2(
+                Phaser.Math.Clamp(x, 16, this.scene.map.widthInPixels - 16),
+                Phaser.Math.Clamp(y, 16, this.scene.map.heightInPixels - 16)
+            );
+            
+            // Check if the point is accessible (not in a wall)
+            const tile = this.scene.layer.getTileAtWorldXY(newPoint.x, newPoint.y);
+            if (!tile || !tile.collides) {
+                points.push(newPoint);
+            }
+        }
+        
+        // If we couldn't generate any valid points (unlikely), use a fallback
+        if (points.length <= 1) {
+            // Add some points in cardinal directions at smaller distances
+            const fallbackDistances = [32, 48, 64];
+            const fallbackAngles = [0, Math.PI/2, Math.PI, Math.PI*3/2];
+            
+            for (const distance of fallbackDistances) {
+                for (const angle of fallbackAngles) {
+                    const x = position.x + Math.cos(angle) * distance;
+                    const y = position.y + Math.sin(angle) * distance;
+                    
+                    // Make sure the point is within bounds
+                    const point = new Phaser.Math.Vector2(
+                        Phaser.Math.Clamp(x, 16, this.scene.map.widthInPixels - 16),
+                        Phaser.Math.Clamp(y, 16, this.scene.map.heightInPixels - 16)
+                    );
+                    
+                    // Only add if it's not in a wall
+                    const tile = this.scene.layer.getTileAtWorldXY(point.x, point.y);
+                    if (!tile || !tile.collides) {
+                        points.push(point);
+                    }
+                }
+            }
+        }
+        
+        // Ensure there's at least one point besides the origin
+        if (points.length <= 1) {
+            console.log("Warning: Could not generate valid search points");
+        }
+        
+        // Randomize the order of points except for the first one (last known position)
+        if (points.length > 2) {
+            const firstPoint = points.shift(); // Remove first point
+            Phaser.Utils.Array.Shuffle(points); // Shuffle remaining points
+            points.unshift(firstPoint); // Put first point back
+        }
+        
+        console.log(`Generated ${points.length} search points`);
+        
+        // Set the investigation points
+        this.playerMemory.investigationPoints = points;
+        this.playerMemory.currentInvestigationPoint = 0;
+    }
+    
+    // Search the area around the last known player position
+    searchArea() {
+        if (this.playerMemory.investigationPoints.length === 0) return;
+        
+        // Get the current investigation point
+        const currentPoint = this.playerMemory.investigationPoints[this.playerMemory.currentInvestigationPoint];
+        
+        // Move to the current investigation point
+        const distToPoint = Phaser.Math.Distance.Between(
+            this.x, this.y,
+            currentPoint.x, currentPoint.y
+        );
+        
+        if (distToPoint < 16) {
+            // Reached the point, wait a moment and look around
+            if (!this.isWaiting) {
+                this.isWaiting = true;
+                this.waitTimer = 0;
+                this.waitDuration = 1000;
+                
+                this.rotationStart = this.facingAngle;
+                this.rotationTarget = this.facingAngle + Math.PI * 2;
+                this.rotationProgress = 0;
+                
+                // Stop movement completely when we reach the point
+                this.body.setVelocity(0, 0);
+            } else if (this.waitTimer >= this.waitDuration) {
+                // Move to the next investigation point
+                this.playerMemory.currentInvestigationPoint++;
+                
+                // If we've checked all points, return to patrol
+                if (this.playerMemory.currentInvestigationPoint >= this.playerMemory.investigationPoints.length) {
+                    this.playerMemory.investigationPoints = [];
+                    this.setAlertState(this.alertStates.RETURNING);
+                }
+                
+                this.isWaiting = false;
+            } else {
+                // While waiting, update rotation to look around
+                this.rotationProgress = this.waitTimer / this.waitDuration;
+                this.facingAngle = this.rotationStart + (this.rotationProgress * Math.PI * 2);
+                
+                // Ensure we're not moving while looking around
+                this.body.setVelocity(0, 0);
+            }
+        } else {
+            // Not at the point yet - move directly towards the investigation point
+            const direction = new Phaser.Math.Vector2(
+                currentPoint.x - this.x,
+                currentPoint.y - this.y
+            );
+            
+            if (direction.length() > 0) {
+                direction.normalize();
+                
+                // Use a direct velocity assignment with sufficient speed
+                const searchSpeed = this.speed * 0.9; // Slightly faster to ensure movement
+                this.body.velocity.x = direction.x * searchSpeed;
+                this.body.velocity.y = direction.y * searchSpeed;
+                
+                // Update facing angle more aggressively for more responsive turning
+                this.facingAngle = direction.angle();
+            }
+        }
+    }
+    
+    // Just turn to face a position without moving
+    lookTowardsPosition(position) {
+        if (!position) return;
+        
+        const direction = new Phaser.Math.Vector2(
+            position.x - this.x,
+            position.y - this.y
+        );
+        
+        if (direction.length() > 0) {
+            const targetAngle = direction.angle();
+            
+            // Smoothly rotate to face target
+            this.facingAngle = Phaser.Math.Angle.RotateTo(
+                this.facingAngle,
+                targetAngle,
+                this.turnSpeed * 16
+            );
+        }
+    }
+    
+    // Update the alert indicator above the AI
+    updateAlertIndicator() {
+        let indicatorText = '';
+        let color = '#ffffff';
+        
+        // Only show indicator for non-patrol states or when alert level is significant
+        if (this.alertState !== this.alertStates.PATROL && this.alertLevel > 10) {
+            if (this.alertLevel > 75) {
+                indicatorText = '!';
+                color = '#ff0000';
+            } else if (this.alertLevel > 40) {
+                indicatorText = '?!';
+                color = '#ff7700';
+            } else if (this.alertLevel > 10) {
+                indicatorText = '?';
+                color = '#ffff00';
+            }
+        }
+        
+        // Only show indicator if there's text to display
+        if (indicatorText) {
+            this.alertIndicator.setText(indicatorText);
+            this.alertIndicator.setVisible(true);
+        } else {
+            this.alertIndicator.setVisible(false);
+        }
     }
     
     canSeePlayer(player) {
@@ -472,7 +885,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
     }
     
     chasePlayer(targetPos) {
-        this.moveToPosition(targetPos, this.speed);
+        this.moveToPosition(targetPos, this.speed * 1.2); // Move faster when chasing
     }
     
     moveToPosition(targetPos, speed) {
@@ -493,7 +906,8 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
     // New method for continuous patrol movement
     followPatrolPathContinuous(delta) {
         if (this.patrolPath.length <= 1) {
-            this.state = 'wander';
+            this.alertState = this.alertStates.PATROL;
+            this.wander(0, delta);
             return;
         }
         
@@ -655,11 +1069,25 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         this.graphics.clear();
         
         // Always draw patrol path regardless of debug mode
-        // This ensures it's visible when needed
         this.drawPatrolPath();
         
-        // Draw vision cone with yellow color and transparency
-        this.graphics.fillStyle(0xffff00, 0.2);
+        // Draw vision cone with color based on alert state
+        let visionColor = 0xffff00; // Default yellow
+        
+        // Change cone color based on alert state
+        switch (this.alertState) {
+            case this.alertStates.SUSPICIOUS:
+                visionColor = 0xffaa00; // Orange for suspicious
+                break;
+            case this.alertStates.SEARCHING:
+                visionColor = 0xff7700; // Darker orange for searching
+                break;
+            case this.alertStates.ALERT:
+                visionColor = 0xff0000; // Red for alert
+                break;
+        }
+        
+        this.graphics.fillStyle(visionColor, 0.2);
         
         // Starting position
         const startX = this.x;
@@ -694,6 +1122,43 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         
         this.graphics.closePath();
         this.graphics.fillPath();
+        
+        // Draw investigation points if searching
+        if (this.alertState === this.alertStates.SEARCHING && 
+            this.playerMemory.investigationPoints.length > 0) {
+            
+            this.graphics.lineStyle(1, 0xffaa00, 0.8);
+            
+            // Draw all investigation points
+            for (let i = 0; i < this.playerMemory.investigationPoints.length; i++) {
+                const point = this.playerMemory.investigationPoints[i];
+                const isCurrent = i === this.playerMemory.currentInvestigationPoint;
+                
+                // Draw circle for each point, bigger circle for current target
+                this.graphics.strokeCircle(point.x, point.y, isCurrent ? 12 : 6);
+                
+                // Draw line to the current investigation point
+                if (isCurrent) {
+                    this.graphics.beginPath();
+                    this.graphics.moveTo(this.x, this.y);
+                    this.graphics.lineTo(point.x, point.y);
+                    this.graphics.strokePath();
+                }
+            }
+        }
+        
+        // Draw last known player position if in alert/searching state
+        if ((this.alertState === this.alertStates.SEARCHING || 
+             this.alertState === this.alertStates.ALERT || 
+             this.alertState === this.alertStates.SUSPICIOUS) && 
+            this.playerMemory.lastKnownPosition) {
+            
+            const pos = this.playerMemory.lastKnownPosition;
+            this.graphics.lineStyle(2, 0xff0000, 0.8);
+            this.graphics.strokeCircle(pos.x, pos.y, 15);
+            this.graphics.fillStyle(0xff0000, 0.5);
+            this.graphics.fillCircle(pos.x, pos.y, 5);
+        }
     }
     
     // Separate method to draw patrol path for clarity
@@ -734,7 +1199,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             this.graphics.strokePath();
             
             // Draw interpolated target (where AI is heading)
-            if (this.state === 'patrol') {
+            if (this.alertState === this.alertStates.PATROL) {
                 const dx = nextPoint.x - currentPoint.x;
                 const dy = nextPoint.y - currentPoint.y;
                 const targetX = currentPoint.x + dx * this.pathProgress;
@@ -746,12 +1211,25 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             
             // Add a highlight for the AI's current state
             let stateColor;
-            switch (this.state) {
-                case 'chase': stateColor = 0xff0000; break; // Red for chase
-                case 'patrol': stateColor = 0x00ff00; break; // Green for patrol
-                case 'returnToPath': stateColor = 0xffff00; break; // Yellow for return
-                case 'wander': stateColor = 0x0000ff; break; // Blue for wander
-                default: stateColor = 0xffffff; break; // White for unknown
+            switch (this.alertState) {
+                case this.alertStates.PATROL:
+                    stateColor = 0x00ff00; // Green for patrol
+                    break;
+                case this.alertStates.SUSPICIOUS:
+                    stateColor = 0xffff00; // Yellow for suspicious
+                    break;
+                case this.alertStates.SEARCHING:
+                    stateColor = 0xff7700; // Orange for searching
+                    break;
+                case this.alertStates.ALERT:
+                    stateColor = 0xff0000; // Red for alert
+                    break;
+                case this.alertStates.RETURNING:
+                    stateColor = 0x0000ff; // Blue for returning to patrol
+                    break;
+                default:
+                    stateColor = 0xffffff; // White for unknown
+                    break;
             }
             
             // Draw a state indicator above the AI
@@ -797,6 +1275,9 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
     destroy(fromScene) {
         if (this.graphics) {
             this.graphics.destroy();
+        }
+        if (this.alertIndicator) {
+            this.alertIndicator.destroy();
         }
         super.destroy(fromScene);
     }
