@@ -6,6 +6,8 @@ export class LevelSelect extends Scene {
         super('LevelSelect');
         this.levelFiles = [];
         this.buttons = [];
+        this.pageIndex = 0;
+        this.levelsPerPage = 9; // 3x3 grid
     }
 
     preload() {
@@ -45,7 +47,7 @@ export class LevelSelect extends Scene {
                 console.log('Using "map" as fallback level.');
             } else {
                 // Just create a manual list as last resort
-                this.levelFiles = ['level1', 'level2', 'level3'];
+                this.levelFiles = ['level1', 'level2', 'level3', 'level4'];
                 console.log('Using hardcoded level list as fallback.');
             }
             this.createLevelButtons();
@@ -74,6 +76,10 @@ export class LevelSelect extends Scene {
     }
 
     createLevelButtons() {
+        // Clear any existing buttons
+        this.buttons.forEach(button => button.destroy());
+        this.buttons = [];
+        
         const { width, height } = this.cameras.main;
         const centerX = width / 2;
         const baseWidth = 800;
@@ -99,20 +105,31 @@ export class LevelSelect extends Scene {
         const buttonWidth = 200 * scaleFactor;
         const buttonHeight = 60 * scaleFactor;
         const padding = 20 * scaleFactor;
-        const buttonsPerRow = Math.min(3, this.levelFiles.length);
-        const rows = Math.ceil(this.levelFiles.length / buttonsPerRow);
+        
+        // Calculate rows and columns for our grid
+        const columns = 3;
+        const rows = 3;
+        
+        // Calculate total levels and pages
+        const totalLevels = this.levelFiles.length;
+        const totalPages = Math.ceil(totalLevels / this.levelsPerPage);
         
         // Calculate starting Y position to center the grid vertically
         const gridHeight = rows * buttonHeight + (rows - 1) * padding;
         let startY = (height - gridHeight) / 2;
 
-        // Create buttons for each level
-        for (let i = 0; i < this.levelFiles.length; i++) {
-            const row = Math.floor(i / buttonsPerRow);
-            const col = i % buttonsPerRow;
+        // Calculate start and end index for this page
+        const startIndex = this.pageIndex * this.levelsPerPage;
+        const endIndex = Math.min(startIndex + this.levelsPerPage, totalLevels);
+        
+        // Create buttons for levels on this page
+        for (let i = startIndex; i < endIndex; i++) {
+            const relativeIndex = i - startIndex;
+            const row = Math.floor(relativeIndex / columns);
+            const col = relativeIndex % columns;
             
             // Calculate position for this button
-            let buttonX = centerX + (col - (buttonsPerRow - 1) / 2) * (buttonWidth + padding);
+            let buttonX = centerX + (col - 1) * (buttonWidth + padding);
             let buttonY = startY + row * (buttonHeight + padding);
             
             // Get level number from filename
@@ -170,8 +187,74 @@ export class LevelSelect extends Scene {
             this.buttons.push(button);
         }
         
+        // Add pagination if we have multiple pages
+        if (totalPages > 1) {
+            this.createPaginationControls(totalPages, scaleFactor);
+        }
+        
         // Add back button below the level buttons
         this.createBackButton(scaleFactor);
+    }
+    
+    createPaginationControls(totalPages, scaleFactor) {
+        const { width, height } = this.cameras.main;
+        
+        // Create page indicator text
+        const pageText = this.add.text(width / 2, height - 130 * scaleFactor, 
+            `Page ${this.pageIndex + 1} / ${totalPages}`, {
+            fontFamily: 'Arial',
+            fontSize: `${18 * scaleFactor}px`,
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 3 * scaleFactor,
+            align: 'center'
+        }).setOrigin(0.5);
+        
+        this.buttons.push(pageText);
+        
+        // Previous page button
+        if (this.pageIndex > 0) {
+            const prevButton = this.add.text(width / 2 - 80 * scaleFactor, height - 130 * scaleFactor, '◀ Prev', {
+                fontFamily: 'Arial',
+                fontSize: `${18 * scaleFactor}px`,
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 3 * scaleFactor,
+                align: 'center'
+            }).setOrigin(0.5);
+            
+            prevButton.setInteractive({ useHandCursor: true })
+                .on('pointerover', () => prevButton.setStyle({ color: '#f39c12' }))
+                .on('pointerout', () => prevButton.setStyle({ color: '#ffffff' }))
+                .on('pointerdown', () => {
+                    this.pageIndex--;
+                    this.createLevelButtons();
+                });
+                
+            this.buttons.push(prevButton);
+        }
+        
+        // Next page button
+        if (this.pageIndex < totalPages - 1) {
+            const nextButton = this.add.text(width / 2 + 80 * scaleFactor, height - 130 * scaleFactor, 'Next ▶', {
+                fontFamily: 'Arial',
+                fontSize: `${18 * scaleFactor}px`,
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 3 * scaleFactor,
+                align: 'center'
+            }).setOrigin(0.5);
+            
+            nextButton.setInteractive({ useHandCursor: true })
+                .on('pointerover', () => nextButton.setStyle({ color: '#f39c12' }))
+                .on('pointerout', () => nextButton.setStyle({ color: '#ffffff' }))
+                .on('pointerdown', () => {
+                    this.pageIndex++;
+                    this.createLevelButtons();
+                });
+                
+            this.buttons.push(nextButton);
+        }
     }
     
     createBackButton(scaleFactor) {
@@ -191,6 +274,8 @@ export class LevelSelect extends Scene {
             .on('pointerout', () => backButton.setStyle({ color: '#ffffff' }))
             .on('pointerdown', () => this.scene.start('MainMenu'));
             
+        this.buttons.push(backButton);
+        
         // Add a reset progress button (for testing)
         const resetButton = this.add.text(width - 20, height - 20, '🔄 Reset Progress', {
             fontFamily: 'Arial',
@@ -211,6 +296,8 @@ export class LevelSelect extends Scene {
                 gameProgress.reset();
                 this.scene.restart();
             });
+            
+        this.buttons.push(resetButton);
     }
     
     startLevel(levelKey) {

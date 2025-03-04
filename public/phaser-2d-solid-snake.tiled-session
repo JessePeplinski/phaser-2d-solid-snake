@@ -12,27 +12,35 @@
     "file.lastUsedOpenFilter": "All Files (*)",
     "fileStates": {
         "assets/tilemaps/level1.tmx": {
-            "scale": 1,
+            "scale": 0.5,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": -222,
-                "y": -768.5
+                "x": -267,
+                "y": -568
             }
         },
         "assets/tilemaps/level2.tmx": {
-            "scale": 2,
+            "scale": 0.5,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": -293,
-                "y": -712.5
+                "x": -285,
+                "y": -462
             }
         },
         "assets/tilemaps/level3.tmx": {
-            "scale": 0.7800390624999999,
+            "scale": 0.5,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": -127.55771445740902,
-                "y": -878.1611497821625
+                "x": -69,
+                "y": -808
+            }
+        },
+        "assets/tilemaps/level4.tmx": {
+            "scale": 1,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 442.5,
+                "y": 287
             }
         },
         "assets/tilemaps/tileset.tsx": {
@@ -62,6 +70,7 @@
     ],
     "project": "phaser-2d-solid-snake.tiled-project",
     "recentFiles": [
+        "assets/tilemaps/level4.tmx",
         "assets/tilemaps/level1.tmx",
         "assets/tilemaps/tileset.tsx",
         "assets/tilemaps/level2.tmx",
