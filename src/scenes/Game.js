@@ -2,6 +2,208 @@ import { Scene } from 'phaser';
 import { gameProgress } from './GameProgress';
 import { AI } from '../entities/AI';
 
+// Add this Minimap class at the top of your Game.js file, 
+// just before the Game class definition
+
+class Minimap {
+    constructor(scene, options = {}) {
+        this.scene = scene;
+        
+        // Default configuration
+        this.config = {
+            x: 0,
+            y: 0,
+            width: 160,
+            height: 120,
+            scale: 0.1,
+            borderThickness: 2,
+            backgroundColor: 0x000000,
+            backgroundAlpha: 0.5,
+            borderColor: 0xffffff,
+            playerColor: 0x00ff00,
+            wallColor: 0x444444,
+            exitColor: 0x00ffff,
+            spawnColor: 0x66ff66,
+            enemyColors: {
+                patrol: 0x00ff00,      // Green - no alert
+                suspicious: 0xffff00,   // Yellow - low alert
+                searching: 0xff9900,    // Orange - medium alert
+                alert: 0xff0000,        // Red - high alert
+                returning: 0x0099ff     // Blue - returning to patrol
+            }
+        };
+        
+        // Apply any custom options
+        Object.assign(this.config, options);
+        
+        // Create the graphics objects
+        this.container = scene.add.container(this.config.x, this.config.y);
+        this.container.setScrollFactor(0); // Fix to camera
+        
+        // Background
+        this.background = scene.add.rectangle(
+            this.config.width / 2, 
+            this.config.height / 2, 
+            this.config.width, 
+            this.config.height, 
+            this.config.backgroundColor, 
+            this.config.backgroundAlpha
+        );
+        
+        // Border
+        this.border = scene.add.rectangle(
+            this.config.width / 2, 
+            this.config.height / 2, 
+            this.config.width, 
+            this.config.height
+        );
+        this.border.setStrokeStyle(this.config.borderThickness, this.config.borderColor);
+        
+        // Graphics for map layout
+        this.mapGraphics = scene.add.graphics();
+        
+        // Graphics for entities
+        this.entitiesGraphics = scene.add.graphics();
+        
+        // Add to container
+        this.container.add([this.background, this.border, this.mapGraphics, this.entitiesGraphics]);
+        
+        // Create 'alerting' text
+        this.alertText = scene.add.text(
+            this.config.width / 2, 
+            this.config.height + 5, 
+            '', 
+            {
+                fontFamily: 'Arial',
+                fontSize: '14px',
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 3
+            }
+        );
+        this.alertText.setOrigin(0.5, 0);
+        this.container.add(this.alertText);
+        
+        // Draw the map layout once
+        this.drawMapLayout();
+    }
+    
+    // Draw the map layout including walls, spawn point, and exit
+    drawMapLayout() {
+        this.mapGraphics.clear();
+        
+        const map = this.scene.map;
+        if (!map || !this.scene.layer) return;
+        
+        // Calculate scale factors
+        const scaleX = this.config.width / map.widthInPixels;
+        const scaleY = this.config.height / map.heightInPixels;
+        
+        // Draw walls and special tiles
+        this.scene.layer.forEachTile(tile => {
+            const x = tile.pixelX * scaleX;
+            const y = tile.pixelY * scaleY;
+            const width = tile.width * scaleX;
+            const height = tile.height * scaleY;
+            
+            if (tile.collides) {
+                // Wall tiles
+                this.mapGraphics.fillStyle(this.config.wallColor, 0.7);
+                this.mapGraphics.fillRect(x, y, width, height);
+            }
+            
+            // Special tiles
+            switch (tile.index) {
+                case 31: // Exit/goal
+                    this.mapGraphics.fillStyle(this.config.exitColor, 0.7);
+                    this.mapGraphics.fillRect(x, y, width, height);
+                    break;
+                case 32: // Spawn point
+                    this.mapGraphics.fillStyle(this.config.spawnColor, 0.7);
+                    this.mapGraphics.fillRect(x, y, width, height);
+                    break;
+            }
+        });
+    }
+    
+    update(player, enemies = []) {
+        this.entitiesGraphics.clear();
+        
+        // Calculate world to minimap scale
+        const mapWidth = this.scene.map.widthInPixels;
+        const mapHeight = this.scene.map.heightInPixels;
+        
+        const scaleX = this.config.width / mapWidth;
+        const scaleY = this.config.height / mapHeight;
+        
+        // Draw player
+        const playerX = player.x * scaleX;
+        const playerY = player.y * scaleY;
+        
+        this.entitiesGraphics.fillStyle(this.config.playerColor, 1);
+        this.entitiesGraphics.fillCircle(playerX, playerY, 4);
+        
+        // Draw enemies and track alert states
+        let highestAlertState = '';
+        let highestAlertLevel = 0;
+        
+        enemies.forEach(enemy => {
+            const enemyX = enemy.x * scaleX;
+            const enemyY = enemy.y * scaleY;
+            
+            // Select color based on alert state
+            const color = this.config.enemyColors[enemy.alertState] || 0xffffff;
+            
+            // Draw enemy
+            this.entitiesGraphics.fillStyle(color, 1);
+            this.entitiesGraphics.fillCircle(enemyX, enemyY, 3);
+            
+            // Track highest alert level for the text display
+            if (enemy.alertLevel > highestAlertLevel) {
+                highestAlertLevel = enemy.alertLevel;
+                highestAlertState = enemy.alertState;
+            }
+        });
+        
+        // Update alert text based on highest alert state
+        if (highestAlertLevel > 10) {
+            let alertMessage = '';
+            let textColor = '#ffffff';
+            
+            switch (highestAlertState) {
+                case 'suspicious':
+                    alertMessage = 'Low Alert';
+                    textColor = '#ffff00';
+                    break;
+                case 'searching':
+                    alertMessage = 'Medium Alert';
+                    textColor = '#ff9900';
+                    break;
+                case 'alert':
+                    alertMessage = 'HIGH ALERT';
+                    textColor = '#ff0000';
+                    break;
+                default:
+                    alertMessage = '';
+            }
+            
+            this.alertText.setText(alertMessage);
+            this.alertText.setStyle({ color: textColor });
+        } else {
+            this.alertText.setText('');
+        }
+    }
+    
+    resize(width, height) {
+        // Reposition minimap when window is resized
+        this.container.setPosition(width - this.config.width - 20, 20);
+    }
+    
+    destroy() {
+        this.container.destroy();
+    }
+}
+
 export class Game extends Scene {
     constructor() {
         super('Game');
@@ -41,7 +243,11 @@ export class Game extends Scene {
         // Footstep management for AI entities
         this.lastAIFootstepTime = 0;
         this.minAIFootstepInterval = 300; // Minimum time between any AI footsteps
+        
+        // Add minimap property
+        this.minimap = null;
     }
+
     init(data) {
         // Reset all game state variables
         this.initialize();
@@ -126,6 +332,21 @@ export class Game extends Scene {
             fill: '#ffffff'
         });
         this.timerText.setScrollFactor(0);
+
+        const { width, height } = this.cameras.main;
+        this.minimap = new Minimap(this, {
+            x: width - 180,
+            y: 20,
+            width: 160,
+            height: 120
+        });
+
+        // Set up window resize event to update the minimap position (ADD THIS)
+        this.scale.on('resize', (gameSize) => {
+            if (this.minimap) {
+                this.minimap.resize(gameSize.width, gameSize.height);
+            }
+        });
         
         // Add "Return to Main Menu" button
         const menuButton = this.add.text(16, 50, 'Return to Main Menu', {
@@ -286,6 +507,12 @@ export class Game extends Scene {
             this.enemies = [];
         }
         
+        // Destroy the minimap
+        if (this.minimap) {
+            this.minimap.destroy();
+            this.minimap = null;
+        }
+        
         // Start the new scene
         this.scene.start(sceneName, data);
     }
@@ -430,6 +657,10 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
         // Stop update loop if the game is over
         if (this.gameOver) {
             return;
+        }
+
+        if (this.minimap) {
+            this.minimap.update(this.player, this.enemies);
         }
 
         // Call this in the update method:

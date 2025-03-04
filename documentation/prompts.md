@@ -87,3 +87,6 @@ I see the points get plotted on the map, but the AI does not explore each point.
 
 # Footsteps
 If the user toggles on sound for the game from the Main Menu, I want a footstep sound to play when they walk. The AI should also have footstep sounds. The asset is found in /public/sounds/footstep.mp3. This file is less than a second long and should loop as needed.
+
+# Question
+Add a minimap system in the upper right hand corner that shows where the player is on the map and the alert status. This should display at all times, debug or no debug mode. (The alerts should match what the game is: No alert (nothing shows), low alert, medium alert, high alert)
