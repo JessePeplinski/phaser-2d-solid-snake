@@ -34,8 +34,13 @@ export class Game extends Scene {
         this.enemies = [];
         this.captureDistance = 24; // Distance at which an AI can capture the player
         this.footstepSound = null;
+        this.playerFootstepsEnabled = false;
         this.footstepTimer = 0;
-        this.footstepDelay = 200; // Delay between footstep sounds in ms
+        this.footstepDelay = 300; // Delay between player footstep sounds in ms
+        
+        // Footstep management for AI entities
+        this.lastAIFootstepTime = 0;
+        this.minAIFootstepInterval = 300; // Minimum time between any AI footsteps
     }
     init(data) {
         // Reset all game state variables
@@ -484,13 +489,17 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
         if (velocityX !== 0 || velocityY !== 0) {
             this.player.facingAngle = Phaser.Math.Angle.Between(0, 0, velocityX, velocityY);
             
-            // Play footstep sound when moving
-            this.footstepTimer += delta;
-            if (this.footstepTimer >= this.footstepDelay) {
-                if (!this.sound.mute) {
-                    this.footstepSound.play();
+            // Only play footsteps if enabled
+            if (this.playerFootstepsEnabled) {
+                // Play footstep sound when moving
+                this.footstepTimer += delta;
+                if (this.footstepTimer >= this.footstepDelay) {
+                    if (!this.sound.mute) {
+                        this.footstepSound.setVolume(0.35);
+                        this.footstepSound.play();
+                    }
+                    this.footstepTimer = 0;
                 }
-                this.footstepTimer = 0;
             }
         } else {
             // Reset footstep timer when not moving
@@ -608,7 +617,11 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
 
     // Update all enemies in the scene
     updateEnemies(time, delta) {
+        // Current time for AI footstep coordination
+        const currentTime = this.time.now;
+        
         this.enemies.forEach(enemy => {
+            // Update enemy logic
             enemy.update(time, delta, this.player);
             
             // Check for player capture
@@ -620,6 +633,31 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
                 
                 if (distance <= this.captureDistance) {
                     this.onPlayerCaptured();
+                }
+                
+                // Handle AI footsteps centrally instead of in the AI class
+                if (enemy.isMoving && !this.sound.mute) {
+                    enemy.footstepTimer += delta;
+                    
+                    // Only allow an AI footstep if enough time has passed since the last one
+                    const timeSinceLastAIFootstep = currentTime - this.lastAIFootstepTime;
+                    const canPlayAIFootstep = timeSinceLastAIFootstep > this.minAIFootstepInterval;
+                    
+                    if (enemy.footstepTimer >= enemy.footstepDelay && canPlayAIFootstep) {
+                        // Calculate distance-based volume (quieter as distance increases)
+                        const maxHearingDistance = 250; // Maximum distance at which footsteps are audible
+                        const distanceFactor = 1 - Math.min(1, distance / maxHearingDistance);
+                        const volume = 0.25 * distanceFactor;
+                        
+                        // Only play footstep if it's close enough to be heard
+                        if (distanceFactor > 0.1) {
+                            enemy.footstepSound.setVolume(volume);
+                            enemy.footstepSound.play();
+                            this.lastAIFootstepTime = currentTime;
+                        }
+                        
+                        enemy.footstepTimer = 0;
+                    }
                 }
             }
         });

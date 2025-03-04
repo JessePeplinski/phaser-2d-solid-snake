@@ -18,11 +18,12 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
 
         // Footstep sound handling
         this.footstepTimer = 0;
-        this.footstepDelay = 400; // Slightly slower than player's footsteps
+        this.footstepDelay = 300; // Longer delay for AI footsteps (less frequent)
         this.footstepSound = scene.sound.add('footstep', {
-            volume: 0.3,
+            volume: 0.2,
             loop: false
         });
+        this.isMoving = false; // Track movement state for footstep coordination
         
         // Alert state system
         this.alertStates = {
@@ -1060,22 +1061,8 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
     updateAnimation(delta) {
         const velocity = this.body.velocity;
         
-        // Check if the AI is moving
-        const isMoving = Math.abs(velocity.x) > 10 || Math.abs(velocity.y) > 10;
-        
-        if (isMoving) {
-            // Play footstep sounds when moving
-            if (!this.scene.sound.mute) {
-                this.footstepTimer += delta;
-                if (this.footstepTimer >= this.footstepDelay) {
-                    this.footstepSound.play();
-                    this.footstepTimer = 0;
-                }
-            }
-        } else {
-            // Reset footstep timer when not moving
-            this.footstepTimer = this.footstepDelay;
-        }
+        // Update movement state flag
+        this.isMoving = Math.abs(velocity.x) > 10 || Math.abs(velocity.y) > 10;
         
         // Update animations based on movement direction
         if (velocity.x < -10) {
