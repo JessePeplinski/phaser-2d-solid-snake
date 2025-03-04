@@ -84,3 +84,6 @@ The movement should feel more natural, meaning they should not stop for a moment
 I need to update my AI code. The code for exploring the last known location is not working as I expect it to.
 
 I see the points get plotted on the map, but the AI does not explore each point. I would like them to do so. THey currently remaining stationary and spin around in a 360-degree circle. 
+
+# Footsteps
+If the user toggles on sound for the game from the Main Menu, I want a footstep sound to play when they walk. The AI should also have footstep sounds. The asset is found in /public/sounds/footstep.mp3. This file is less than a second long and should loop as needed.
