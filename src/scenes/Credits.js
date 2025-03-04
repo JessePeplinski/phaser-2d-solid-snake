@@ -183,16 +183,7 @@ export class Credits extends Scene {
             });
         }
         
-        // Add a note at the bottom
-        this.add.text(centerX, height - 80 * scaleFactor, 
-            'Solid Snek is a fan project inspired by Metal Gear Solid.\nNo affiliation with Konami or Hideo Kojima.', {
-            fontFamily: 'Arial',
-            fontSize: `${16 * scaleFactor}px`,
-            color: '#cccccc',
-            stroke: '#000000',
-            strokeThickness: 2 * scaleFactor,
-            align: 'center'
-        }).setOrigin(0.5);
+
         
         // Back button
         const backButton = this.add.text(centerX, height - 30 * scaleFactor, 'Back to Menu', {
