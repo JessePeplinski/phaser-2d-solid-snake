@@ -15,6 +15,14 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         this.facingAngle = 0;
         this.sightLine = null;
         this.graphics = scene.add.graphics();
+
+        // Footstep sound handling
+        this.footstepTimer = 0;
+        this.footstepDelay = 400; // Slightly slower than player's footsteps
+        this.footstepSound = scene.sound.add('footstep', {
+            volume: 0.3,
+            loop: false
+        });
         
         // Alert state system
         this.alertStates = {
@@ -527,7 +535,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         }
         
         // Update animations based on movement
-        this.updateAnimation();
+        this.updateAnimation(delta);
         
         // Update vision cone
         this.updateVisionCone();
@@ -1049,9 +1057,27 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         }
     }
     
-    updateAnimation() {
+    updateAnimation(delta) {
         const velocity = this.body.velocity;
         
+        // Check if the AI is moving
+        const isMoving = Math.abs(velocity.x) > 10 || Math.abs(velocity.y) > 10;
+        
+        if (isMoving) {
+            // Play footstep sounds when moving
+            if (!this.scene.sound.mute) {
+                this.footstepTimer += delta;
+                if (this.footstepTimer >= this.footstepDelay) {
+                    this.footstepSound.play();
+                    this.footstepTimer = 0;
+                }
+            }
+        } else {
+            // Reset footstep timer when not moving
+            this.footstepTimer = this.footstepDelay;
+        }
+        
+        // Update animations based on movement direction
         if (velocity.x < -10) {
             this.anims.play('left', true);
         } else if (velocity.x > 10) {
@@ -1278,6 +1304,9 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         }
         if (this.alertIndicator) {
             this.alertIndicator.destroy();
+        }
+        if (this.footstepSound) {
+            this.footstepSound.stop();
         }
         super.destroy(fromScene);
     }

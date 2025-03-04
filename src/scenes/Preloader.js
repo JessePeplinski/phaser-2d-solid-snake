@@ -72,6 +72,9 @@ export class Preloader extends Scene
         // --- AUDIO ---
         // Music
         this.load.audio('mgs-intro-music', 'sounds/mgs-intro-music.mp3');
+
+        // Sound Effects
+        this.load.audio('footstep', 'sounds/footstep.mp3');
         
         // Sound Effects - Add any game sound effects here
         // this.load.audio('footstep', 'sounds/footstep.wav');

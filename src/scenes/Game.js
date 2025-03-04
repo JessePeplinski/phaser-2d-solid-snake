@@ -33,8 +33,10 @@ export class Game extends Scene {
         this.keyListeners = [];
         this.enemies = [];
         this.captureDistance = 24; // Distance at which an AI can capture the player
+        this.footstepSound = null;
+        this.footstepTimer = 0;
+        this.footstepDelay = 200; // Delay between footstep sounds in ms
     }
-
     init(data) {
         // Reset all game state variables
         this.initialize();
@@ -57,6 +59,12 @@ export class Game extends Scene {
         const tileset = this.map.addTilesetImage('tiles');
         this.layer = this.map.createLayer(0, tileset, 0, 0);
         this.map.setCollisionBetween(54, 83);
+
+        // Load footstep sound
+        this.footstepSound = this.sound.add('footstep', {
+            volume: 0.4,
+            loop: false
+        });
 
         // Create the player
         this.player = this.physics.add.sprite(0, 0, 'player', 1);
@@ -253,6 +261,11 @@ export class Game extends Scene {
         if (this.timerEvent) {
             this.timerEvent.remove();
             this.timerEvent = null;
+        }
+        
+        // Stop any sounds
+        if (this.footstepSound) {
+            this.footstepSound.stop();
         }
         
         // Destroy the joystick if it exists
@@ -470,6 +483,18 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
         // Update player's facing direction
         if (velocityX !== 0 || velocityY !== 0) {
             this.player.facingAngle = Phaser.Math.Angle.Between(0, 0, velocityX, velocityY);
+            
+            // Play footstep sound when moving
+            this.footstepTimer += delta;
+            if (this.footstepTimer >= this.footstepDelay) {
+                if (!this.sound.mute) {
+                    this.footstepSound.play();
+                }
+                this.footstepTimer = 0;
+            }
+        } else {
+            // Reset footstep timer when not moving
+            this.footstepTimer = this.footstepDelay;
         }
 
         // Update animations
