@@ -24,6 +24,17 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             loop: false
         });
         this.isMoving = false; // Track movement state for footstep coordination
+
+        this.alertSound = scene.sound.add('alert', {
+            volume: 0.5,
+            loop: false
+        });
+                
+        this.alarmSound = scene.sound.add('alarm', {
+            volume: 0.3,
+            loop: true
+        });
+        this.alertSoundsPlayed = false;
         
         // Alert state system
         this.alertStates = {
@@ -612,6 +623,25 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         // Log state change for debugging
         console.log(`AI state change: ${oldState} -> ${newState}`);
         
+        // Handle alert sounds
+        if (newState === this.alertStates.ALERT && !this.alertSoundsPlayed) {
+            // Play alert sound effect when entering alert state
+            if (!this.scene.sound.mute) {
+                this.alertSound.play();
+                // Play alarm sound after a slight delay
+                this.scene.time.delayedCall(500, () => {
+                    if (this.alertState === this.alertStates.ALERT && !this.scene.sound.mute) {
+                        this.alarmSound.play();
+                    }
+                });
+            }
+            this.alertSoundsPlayed = true;
+        } else if (newState === this.alertStates.PATROL) {
+            // Stop alert sounds when returning to patrol
+            this.alarmSound.stop();
+            this.alertSoundsPlayed = false;
+        }
+        
         // Handle state entry actions
         switch (newState) {
             case this.alertStates.PATROL:
@@ -639,6 +669,8 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 break;
                 
             case this.alertStates.RETURNING:
+                // Stop the alarm sound when returning to patrol
+                this.alarmSound.stop();
                 // Clear investigation points
                 this.playerMemory.investigationPoints = [];
                 break;
@@ -1275,6 +1307,12 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         }
         if (this.footstepSound) {
             this.footstepSound.stop();
+        }
+        if (this.alertSound) {
+            this.alertSound.stop();
+        }
+        if (this.alarmSound) {
+            this.alarmSound.stop();
         }
         super.destroy(fromScene);
     }

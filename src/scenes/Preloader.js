@@ -75,6 +75,9 @@ export class Preloader extends Scene
 
         // Sound Effects
         this.load.audio('footstep', 'sounds/footstep.mp3');
+        this.load.audio('alert', 'sounds/alert.mp3');
+        this.load.audio('alarm', 'sounds/alarm.mp3');
+
         
         // Sound Effects - Add any game sound effects here
         // this.load.audio('footstep', 'sounds/footstep.wav');
