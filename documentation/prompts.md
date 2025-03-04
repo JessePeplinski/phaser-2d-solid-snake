@@ -102,3 +102,33 @@ Can you move the following into the debug menu:
 My AI pathing behavior is not working very well when there are more than one AI introduced. They seem to jump around to each others paths and patterns. 
 
 Can you update the pathfinding so that when the AI spawns, they remain on the path that they originally started on?
+
+# AI Converging on player position in high alert
+
+When an AI enters high alert mode, all enemies should converge on the players location. 
+
+Have the enemy randomly say one of the following phrases above their head: 
+“I need assistance—now!”
+“They’re pushing hard; send reinforcements!”
+“I can’t hold them off on my own!”
+“Back me up before it’s too late!”
+“They’ve breached my position—requesting support!”
+“Multiple hostiles detected! I need backup!”
+“Cover me! I’m taking heavy fire!”
+“I’m pinned down! Get over here!”
+“We have a situation. All units converge!”
+“Reinforcements needed—over!”
+
+The enemies should then attempt to converge on the player. They should say one of the following phrases above their head:
+“We’re on our way—sit tight!”
+“Reinforcements inbound; hold your position!”
+“Copy that; moving to support!”
+“Don’t worry, we’ve got your six!”
+“Moving in! Keep them busy until we arrive!”
+“Hang in there—backup is here!”
+“We’ve got eyes on the target; going in!”
+“We’re with you. Let’s turn the tide!”
+“Stay alert, we’re taking over from here!”
+“Time to wrap this up!”
+
+Please make this update. 
