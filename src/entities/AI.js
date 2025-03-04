@@ -106,7 +106,143 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         
         // Set a tint color to distinguish from player (slightly reddish)
         this.setTint(0xff9999);
+
+        // Alert coordination
+        this.requestingBackup = false;
+        this.respondingToBackup = false;
+        this.backupRequestTime = 0;
+        this.backupResponseTime = 0;
+        
+        // Text display for dialogue
+        this.dialogueText = scene.add.text(0, 0, '', {
+            fontFamily: 'Arial',
+            fontSize: '12px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 3,
+            align: 'center',
+            backgroundColor: '#00000080',
+            padding: {
+                left: 6,
+                right: 6,
+                top: 3,
+                bottom: 3
+            }
+        });
+        this.dialogueText.setOrigin(0.5, 1);
+        this.dialogueText.setVisible(false);
+        
+        // Dialogue timing
+        this.dialogueDisplayTime = 0;
+        this.dialogueDisplayDuration = 3000; // 3 seconds
+        
+        // Dialogue phrases
+        this.backupRequestPhrases = [
+            "I need assistance—now!",
+            "They're pushing hard; send reinforcements!",
+            "I can't hold them off on my own!",
+            "Back me up before it's too late!",
+            "They've breached my position—requesting support!",
+            "Multiple hostiles detected! I need backup!",
+            "Cover me! I'm taking heavy fire!",
+            "I'm pinned down! Get over here!",
+            "We have a situation. All units converge!",
+            "Reinforcements needed—over!"
+        ];
+        
+        this.backupResponsePhrases = [
+            "We're on our way—sit tight!",
+            "Reinforcements inbound; hold your position!",
+            "Copy that; moving to support!",
+            "Don't worry, we've got your six!",
+            "Moving in! Keep them busy until we arrive!",
+            "Hang in there—backup is here!",
+            "We've got eyes on the target; going in!",
+            "We're with you. Let's turn the tide!",
+            "Stay alert, we're taking over from here!",
+            "Time to wrap this up!"
+        ];
     }
+
+    // Add a new method to display dialogue
+    displayDialogue(text) {
+        this.dialogueText.setText(text);
+        this.dialogueText.setVisible(true);
+        this.dialogueDisplayTime = this.scene.time.now;
+    }
+
+    // Add a new method to request backup
+    requestBackup(playerPosition) {
+        if (!this.requestingBackup) {
+            this.requestingBackup = true;
+            this.backupRequestTime = this.scene.time.now;
+            
+            // Display random backup request phrase
+            const phrase = Phaser.Utils.Array.GetRandom(this.backupRequestPhrases);
+            this.displayDialogue(phrase);
+            
+            // Create a fresh copy of the position
+            const positionCopy = new Phaser.Math.Vector2(playerPosition.x, playerPosition.y);
+            
+            // Broadcast to other enemies with a slight delay to prevent overlapping paths
+            let broadcastDelay = 0;
+            
+            this.scene.enemies.forEach(enemy => {
+                if (enemy !== this && !enemy.respondingToBackup && 
+                    enemy.alertState !== this.alertStates.ALERT) {
+                    
+                    // Add a small staggered delay between each enemy response
+                    broadcastDelay += 200;
+                    
+                    this.scene.time.delayedCall(broadcastDelay, () => {
+                        // Only respond if still not in alert or already responding
+                        if (!enemy.respondingToBackup && enemy.alertState !== enemy.alertStates.ALERT) {
+                            enemy.respondToBackup(positionCopy);
+                        }
+                    });
+                }
+            });
+            
+            console.log(`Requested backup at position (${playerPosition.x}, ${playerPosition.y})`);
+        }
+    }
+
+    // Add a new method to respond to backup requests
+    respondToBackup(playerPosition) {
+        if (!this.respondingToBackup && this.alertState !== this.alertStates.ALERT) {
+            this.respondingToBackup = true;
+            this.backupResponseTime = this.scene.time.now;
+            
+            // Create a copy of the position to avoid reference issues
+            this.playerMemory.lastKnownPosition = new Phaser.Math.Vector2(playerPosition.x, playerPosition.y);
+            this.playerMemory.lastSeenTime = this.scene.time.now; // Update the last seen time to make it fresh
+            
+            // Set alert level high enough to ensure aggressive searching
+            this.alertLevel = 70; // Higher alert level to ensure aggressive behavior
+            
+            // Force state change and clear any waiting flags
+            this.isWaiting = false;
+            this.waitTimer = 0;
+            this.setAlertState(this.alertStates.SEARCHING);
+            
+            // Clear existing investigation points to ensure new ones are generated
+            this.playerMemory.investigationPoints = [];
+            
+            // Generate search points around reported position
+            this.generateSearchPoints(this.playerMemory.lastKnownPosition);
+            
+            // Increase speed to get to the location faster
+            this.speed = this.speed * 1.2; // Temporarily increase speed
+            
+            // Display random backup response phrase
+            const phrase = Phaser.Utils.Array.GetRandom(this.backupResponsePhrases);
+            this.displayDialogue(phrase);
+            
+            // Log for debugging
+            console.log(`AI responding to backup at position (${playerPosition.x}, ${playerPosition.y})`);
+        }
+    }
+
     
     // New method to assign a specific patrol path to this AI
     assignPatrolPath(pathPoints) {
@@ -229,6 +365,28 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 this.waitTimer = 0;
             }
         }
+
+        // Update dialogue text position
+        this.dialogueText.setPosition(this.x, this.y - 45);
+        
+        // Hide dialogue after duration expires
+        if (this.dialogueText.visible && 
+            time - this.dialogueDisplayTime > this.dialogueDisplayDuration) {
+            this.dialogueText.setVisible(false);
+        }
+        
+        // Reset backup request after some time if no longer in high alert
+        if (this.requestingBackup && 
+            this.alertState !== this.alertStates.ALERT && 
+            time - this.backupRequestTime > 10000) {
+            this.requestingBackup = false;
+        }
+        
+        // Reset backup response after some time
+        if (this.respondingToBackup && 
+            time - this.backupResponseTime > 15000) {
+            this.respondingToBackup = false;
+        }
         
         // Position alert indicator above AI
         this.alertIndicator.setPosition(this.x, this.y - 30);
@@ -255,80 +413,88 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         }
         
         // State machine for AI behavior
-        switch (this.alertState) {
-            case this.alertStates.PATROL:
-                if (this.hasAssignedPath && this.patrolPath.length > 0) {
-                    this.followPatrolPathContinuous(delta);
-                } else {
-                    this.wander(time, delta);
-                }
-                break;
-                
-            case this.alertStates.SUSPICIOUS:
-                // Look towards the suspicious position or continue patrol with caution
-                if (this.playerMemory.lastKnownPosition) {
-                    this.lookTowardsPosition(this.playerMemory.lastKnownPosition);
-                    
-                    // After brief pause, resume patrol or become more alert
-                    if (this.timeInState > 3000) {
-                        if (this.alertLevel > 50) {
-                            // Transition to searching if suspicion is high
-                            this.setAlertState(this.alertStates.SEARCHING);
-                            this.generateSearchPoints(this.playerMemory.lastKnownPosition);
-                        } else {
-                            // Return to patrol if just briefly suspicious
-                            this.setAlertState(this.alertStates.PATROL);
-                        }
-                    }
-                } else {
-                    // If no last known position, return to patrol
-                    this.setAlertState(this.alertStates.PATROL);
-                }
-                break;
-                
-            case this.alertStates.SEARCHING:
-                // Search around the last known player position
-                if (this.playerMemory.investigationPoints.length > 0) {
-                    this.searchArea();
-                } else if (this.timeInState > 8000) {
-                    // Give up searching after a while
-                    this.setAlertState(this.alertStates.RETURNING);
-                }
-                break;
-                
-            case this.alertStates.ALERT:
-                // Actively chase the player
-                if (this.playerMemory.lastKnownPosition) {
-                    this.chasePlayer(this.playerMemory.lastKnownPosition);
-                }
-                break;
-                
-            case this.alertStates.RETURNING:
-                // Return to patrol path
-                if (this.hasAssignedPath && this.patrolPath.length > 0) {
-                    // Find the nearest patrol point
-                    const closestIndex = this.findClosestPathPointIndex();
-                    const target = this.patrolPath[closestIndex];
-                    
-                    const distToPath = Phaser.Math.Distance.Between(
-                        this.x, this.y, target.x, target.y
-                    );
-                    
-                    if (distToPath < 16) {
-                        // Reached patrol path, resume normal patrol
-                        this.currentPatrolPointIndex = closestIndex;
-                        this.updatePathSegmentLength();
-                        this.pathProgress = 0;
-                        this.setAlertState(this.alertStates.PATROL);
+
+        if (this.respondingToBackup && this.playerMemory.lastKnownPosition && 
+            this.alertState !== this.alertStates.ALERT) {
+            
+            // If we're responding to backup, prioritize investigation regardless of current state
+            this.searchArea();
+        } else {
+            switch (this.alertState) {
+                case this.alertStates.PATROL:
+                    if (this.hasAssignedPath && this.patrolPath.length > 0) {
+                        this.followPatrolPathContinuous(delta);
                     } else {
-                        // Move towards the patrol path
-                        this.moveToPosition(target, this.patrolSpeed * 0.8);
+                        this.wander(time, delta);
                     }
-                } else {
-                    // No patrol path, just go back to wandering
-                    this.setAlertState(this.alertStates.PATROL);
-                }
-                break;
+                    break;
+                    
+                case this.alertStates.SUSPICIOUS:
+                    // Look towards the suspicious position or continue patrol with caution
+                    if (this.playerMemory.lastKnownPosition) {
+                        this.lookTowardsPosition(this.playerMemory.lastKnownPosition);
+                        
+                        // After brief pause, resume patrol or become more alert
+                        if (this.timeInState > 3000) {
+                            if (this.alertLevel > 50) {
+                                // Transition to searching if suspicion is high
+                                this.setAlertState(this.alertStates.SEARCHING);
+                                this.generateSearchPoints(this.playerMemory.lastKnownPosition);
+                            } else {
+                                // Return to patrol if just briefly suspicious
+                                this.setAlertState(this.alertStates.PATROL);
+                            }
+                        }
+                    } else {
+                        // If no last known position, return to patrol
+                        this.setAlertState(this.alertStates.PATROL);
+                    }
+                    break;
+                    
+                case this.alertStates.SEARCHING:
+                    // Search around the last known player position
+                    if (this.playerMemory.investigationPoints.length > 0) {
+                        this.searchArea();
+                    } else if (this.timeInState > 8000) {
+                        // Give up searching after a while
+                        this.setAlertState(this.alertStates.RETURNING);
+                    }
+                    break;
+                    
+                case this.alertStates.ALERT:
+                    // Actively chase the player
+                    if (this.playerMemory.lastKnownPosition) {
+                        this.chasePlayer(this.playerMemory.lastKnownPosition);
+                    }
+                    break;
+                    
+                case this.alertStates.RETURNING:
+                    // Return to patrol path
+                    if (this.hasAssignedPath && this.patrolPath.length > 0) {
+                        // Find the nearest patrol point
+                        const closestIndex = this.findClosestPathPointIndex();
+                        const target = this.patrolPath[closestIndex];
+                        
+                        const distToPath = Phaser.Math.Distance.Between(
+                            this.x, this.y, target.x, target.y
+                        );
+                        
+                        if (distToPath < 16) {
+                            // Reached patrol path, resume normal patrol
+                            this.currentPatrolPointIndex = closestIndex;
+                            this.updatePathSegmentLength();
+                            this.pathProgress = 0;
+                            this.setAlertState(this.alertStates.PATROL);
+                        } else {
+                            // Move towards the patrol path
+                            this.moveToPosition(target, this.patrolSpeed * 0.8);
+                        }
+                    } else {
+                        // No patrol path, just go back to wandering
+                        this.setAlertState(this.alertStates.PATROL);
+                    }
+                    break;
+            }
         }
         
         // Update animations based on movement
@@ -405,15 +571,23 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         this.alertState = newState;
         this.timeInState = 0;
         
-        // Log state change for debugging
         console.log(`AI state change: ${oldState} -> ${newState}`);
+        
+        // Request backup when entering alert state for the first time
+        if (newState === this.alertStates.ALERT && 
+            oldState !== this.alertStates.ALERT && 
+            !this.requestingBackup && 
+            this.playerMemory.lastKnownPosition) {
+            
+            // Request backup immediately for faster response
+            this.requestBackup(this.playerMemory.lastKnownPosition);
+        }
         
         // Handle alert sounds
         if (newState === this.alertStates.ALERT && !this.alertSoundsPlayed) {
             // Play alert sound effect when entering alert state
             if (!this.scene.sound.mute) {
                 this.alertSound.play();
-                // Play alarm sound after a slight delay
                 this.scene.time.delayedCall(500, () => {
                     if (this.alertState === this.alertStates.ALERT && !this.scene.sound.mute) {
                         this.alarmSound.play();
@@ -425,8 +599,13 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             // Stop alert sounds when returning to patrol
             this.alarmSound.stop();
             this.alertSoundsPlayed = false;
+            
+            // Reset backup flags and speed when returning to patrol
+            this.requestingBackup = false;
+            this.respondingToBackup = false;
+            this.speed = 70; // Reset to default speed
         }
-        
+
         // Handle state entry actions
         switch (newState) {
             case this.alertStates.PATROL:
@@ -486,16 +665,56 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         if (!position) return;
         
         const points = [];
-        const radius = this.playerMemory.investigationRadius;
-        const numPoints = 5; // Number of search points to generate
+        // Expand search radius when responding to backup
+        const radius = this.respondingToBackup ? 
+            this.playerMemory.investigationRadius * 1.5 : 
+            this.playerMemory.investigationRadius;
+        
+        // Increase number of search points when responding to backup
+        const numPoints = this.respondingToBackup ? 7 : 5;
         
         // Add the center point (last known position)
         points.push(new Phaser.Math.Vector2(position.x, position.y));
         
-        // Generate points in a circular pattern around the center
+        // Determine this AI's search sector (if responding to backup)
+        // This helps distribute enemies around the search area
+        let startAngle = 0;
+        let endAngle = Math.PI * 2;
+        
+        if (this.respondingToBackup && this.scene.enemies.length > 1) {
+            // Find this AI's index among responding AIs
+            const respondingEnemies = this.scene.enemies.filter(e => 
+                e.respondingToBackup || e.alertState === e.alertStates.ALERT);
+            
+            const myIndex = respondingEnemies.indexOf(this);
+            
+            if (myIndex !== -1 && respondingEnemies.length > 1) {
+                // Divide the circle into sectors based on the number of responding enemies
+                const sectorSize = (Math.PI * 2) / respondingEnemies.length;
+                startAngle = myIndex * sectorSize;
+                endAngle = startAngle + sectorSize;
+                
+                // Add a bit of overlap between sectors
+                startAngle -= sectorSize * 0.1;
+                endAngle += sectorSize * 0.1;
+            }
+        }
+        
+        // Generate points in the assigned sector or full circle
         for (let i = 0; i < numPoints; i++) {
-            const angle = (i / numPoints) * Math.PI * 2;
-            const distance = Phaser.Math.Between(radius/2, radius);
+            // Calculate angle within the assigned sector
+            const angleFraction = i / (numPoints - 1);
+            const angle = startAngle + angleFraction * (endAngle - startAngle);
+            
+            // Vary the distance for a more natural pattern
+            let distance;
+            if (this.respondingToBackup) {
+                // Use more structured distances when coordinating
+                distance = radius * (0.4 + (angleFraction * 0.6));
+            } else {
+                // More random distances for standard searching
+                distance = Phaser.Math.Between(radius/2, radius);
+            }
             
             const x = position.x + Math.cos(angle) * distance;
             const y = position.y + Math.sin(angle) * distance;
@@ -510,6 +729,32 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             const tile = this.scene.layer.getTileAtWorldXY(newPoint.x, newPoint.y);
             if (!tile || !tile.collides) {
                 points.push(newPoint);
+            }
+        }
+        
+        // If we're responding to backup, add some extra points along possible escape routes
+        if (this.respondingToBackup) {
+            // Add points at cardinal directions to cover escape routes
+            const escapeDirections = [0, Math.PI/2, Math.PI, Math.PI*3/2];
+            const escapeDistances = [radius * 1.2, radius * 1.5];
+            
+            for (const angle of escapeDirections) {
+                for (const distance of escapeDistances) {
+                    const x = position.x + Math.cos(angle) * distance;
+                    const y = position.y + Math.sin(angle) * distance;
+                    
+                    // Make sure the point is within the map bounds
+                    const newPoint = new Phaser.Math.Vector2(
+                        Phaser.Math.Clamp(x, 16, this.scene.map.widthInPixels - 16),
+                        Phaser.Math.Clamp(y, 16, this.scene.map.heightInPixels - 16)
+                    );
+                    
+                    // Check if the point is accessible (not in a wall)
+                    const tile = this.scene.layer.getTileAtWorldXY(newPoint.x, newPoint.y);
+                    if (!tile || !tile.collides) {
+                        points.push(newPoint);
+                    }
+                }
             }
         }
         
@@ -576,7 +821,14 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             if (!this.isWaiting) {
                 this.isWaiting = true;
                 this.waitTimer = 0;
-                this.waitDuration = 1000;
+                
+                // Modify wait duration based on whether responding to backup
+                if (this.respondingToBackup) {
+                    // Shorter wait times when responding to backup for faster searching
+                    this.waitDuration = 500;
+                } else {
+                    this.waitDuration = 1000;
+                }
                 
                 this.rotationStart = this.facingAngle;
                 this.rotationTarget = this.facingAngle + Math.PI * 2;
@@ -588,8 +840,30 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 // Move to the next investigation point
                 this.playerMemory.currentInvestigationPoint++;
                 
-                // If we've checked all points, return to patrol
+                // If we've checked all points, move to next steps
                 if (this.playerMemory.currentInvestigationPoint >= this.playerMemory.investigationPoints.length) {
+                    // If responding to backup and haven't found player, generate new search points in a wider area
+                    if (this.respondingToBackup) {
+                        // Get the original last known position
+                        const originalPos = this.playerMemory.lastKnownPosition;
+                        
+                        if (originalPos) {
+                            // Create a new position offset randomly to expand search area
+                            const searchOffset = Phaser.Math.Between(50, 150);
+                            const searchAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                            
+                            const newSearchCenter = new Phaser.Math.Vector2(
+                                originalPos.x + Math.cos(searchAngle) * searchOffset,
+                                originalPos.y + Math.sin(searchAngle) * searchOffset
+                            );
+                            
+                            // Generate new search points around this expanded area
+                            this.generateSearchPoints(newSearchCenter);
+                            return;
+                        }
+                    }
+                    
+                    // If not responding to backup or no valid position to expand from
                     this.playerMemory.investigationPoints = [];
                     this.setAlertState(this.alertStates.RETURNING);
                 }
@@ -598,7 +872,13 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             } else {
                 // While waiting, update rotation to look around
                 this.rotationProgress = this.waitTimer / this.waitDuration;
-                this.facingAngle = this.rotationStart + (this.rotationProgress * Math.PI * 2);
+                
+                // Faster rotation when responding to backup
+                if (this.respondingToBackup) {
+                    this.facingAngle = this.rotationStart + (this.rotationProgress * Math.PI * 4);
+                } else {
+                    this.facingAngle = this.rotationStart + (this.rotationProgress * Math.PI * 2);
+                }
                 
                 // Ensure we're not moving while looking around
                 this.body.setVelocity(0, 0);
@@ -613,8 +893,14 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             if (direction.length() > 0) {
                 direction.normalize();
                 
-                // Use a direct velocity assignment with sufficient speed
-                const searchSpeed = this.speed * 0.9; // Slightly faster to ensure movement
+                // Use a direct velocity assignment with speed that depends on state
+                let searchSpeed = this.speed * 0.9; // Default search speed
+                
+                // Move faster when responding to backup
+                if (this.respondingToBackup) {
+                    searchSpeed = this.speed * 1.1;
+                }
+                
                 this.body.velocity.x = direction.x * searchSpeed;
                 this.body.velocity.y = direction.y * searchSpeed;
                 
@@ -1070,6 +1356,9 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         }
         if (this.alertIndicator) {
             this.alertIndicator.destroy();
+        }
+        if (this.dialogueText) {
+            this.dialogueText.destroy();
         }
         if (this.footstepSound) {
             this.footstepSound.stop();

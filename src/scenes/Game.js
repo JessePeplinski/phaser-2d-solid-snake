@@ -1100,9 +1100,73 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
         // Current time for AI footstep coordination
         const currentTime = this.time.now;
         
+        // Find alerted enemies and most recent player sighting
+        let alertedEnemies = this.enemies.filter(enemy => 
+            enemy.alertState === enemy.alertStates.ALERT);
+        
+        // Track the single most recent player position sighting for coordination
+        let latestPlayerSighting = null;
+        let latestSightingTime = 0;
+        
         this.enemies.forEach(enemy => {
-            // Update enemy logic
+            if (enemy.playerMemory && enemy.playerMemory.lastKnownPosition && 
+                enemy.playerMemory.lastSeenTime > latestSightingTime) {
+                latestPlayerSighting = new Phaser.Math.Vector2(
+                    enemy.playerMemory.lastKnownPosition.x,
+                    enemy.playerMemory.lastKnownPosition.y
+                );
+                latestSightingTime = enemy.playerMemory.lastSeenTime;
+            }
+        });
+        
+        // Check if any enemy is requesting backup but none are providing it
+        const anyRequestingBackup = this.enemies.some(e => e.requestingBackup);
+        const anyRespondingToBackup = this.enemies.some(e => e.respondingToBackup);
+        
+        // Force response if someone is requesting backup but no one is responding
+        if (anyRequestingBackup && !anyRespondingToBackup && latestPlayerSighting) {
+            // Find eligible enemies to respond (not the ones already in alert)
+            const eligibleResponders = this.enemies.filter(e => 
+                !e.requestingBackup && 
+                e.alertState !== e.alertStates.ALERT);
+            
+            // Pick at least one or two responders if available
+            const responderCount = Math.min(2, eligibleResponders.length);
+            
+            for (let i = 0; i < responderCount; i++) {
+                if (eligibleResponders[i]) {
+                    eligibleResponders[i].respondToBackup(latestPlayerSighting);
+                }
+            }
+        }
+        
+        // Update each enemy
+        this.enemies.forEach(enemy => {
+            // Basic enemy update
             enemy.update(time, delta, this.player);
+            
+            // Share latest intelligence with enemies responding to backup
+            if (enemy.respondingToBackup && latestPlayerSighting && 
+                enemy.alertState === enemy.alertStates.SEARCHING) {
+                
+                // Only update position if it's fresher than what the enemy already has
+                const enemyLastSeenTime = enemy.playerMemory.lastSeenTime || 0;
+                
+                if (latestSightingTime > enemyLastSeenTime) {
+                    // Update the enemy's target location with the latest sighting
+                    enemy.playerMemory.lastKnownPosition = new Phaser.Math.Vector2(
+                        latestPlayerSighting.x, 
+                        latestPlayerSighting.y
+                    );
+                    enemy.playerMemory.lastSeenTime = latestSightingTime;
+                    
+                    // Force regeneration of search points with small probability
+                    // This helps enemies converge on the player's actual location
+                    if (Phaser.Math.Between(1, 100) <= 5) { // 5% chance per update
+                        enemy.generateSearchPoints(enemy.playerMemory.lastKnownPosition);
+                    }
+                }
+            }
             
             // Check for player capture
             if (!this.gameOver) {
@@ -1115,7 +1179,7 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
                     this.onPlayerCaptured();
                 }
                 
-                // Handle AI footsteps centrally instead of in the AI class
+                // Handle AI footsteps
                 if (enemy.isMoving && !this.sound.mute) {
                     enemy.footstepTimer += delta;
                     
