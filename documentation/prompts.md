@@ -79,3 +79,8 @@ This code is now working.
 I need another change - the movement of the AI still does not feel very natural. AI currently goes to a tile, stop for a moment, then go to the next tile in their path.
 
 The movement should feel more natural, meaning they should not stop for a moment on each tile. The AI needs to have continuous movement. 
+
+# Question
+I need to update my AI code. The code for exploring the last known location is not working as I expect it to.
+
+I see the points get plotted on the map, but the AI does not explore each point. I would like them to do so. THey currently remaining stationary and spin around in a 360-degree circle. 

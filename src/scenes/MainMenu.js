@@ -85,7 +85,7 @@ export class MainMenu extends Scene {
 
         const textCreatedByYPosition = -80 * scaleFactor;
         const textCreatedBy = this.add.text(0, textCreatedByYPosition, 'Created by ', creditStyle);
-        const textPeptech = this.add.text(textCreatedBy.width, textCreatedByYPosition, '@peptech', creditStyle);
+        const textPeptech = this.add.text(textCreatedBy.width, textCreatedByYPosition, '@peptech_', creditStyle);
         const textWith = this.add.text(textCreatedBy.width + textPeptech.width, textCreatedByYPosition, ' with ', creditStyle);
         const textPhaser = this.add.text(textCreatedBy.width + textPeptech.width + textWith.width, textCreatedByYPosition, 'Phaser.js', creditStyle);
 
@@ -93,7 +93,7 @@ export class MainMenu extends Scene {
         textPeptech.on('pointerover', () => textPeptech.setStyle({ fill: '#f39c12' }));
         textPeptech.on('pointerout', () => textPeptech.setStyle({ fill: '#ffffff' }));
         textPeptech.on('pointerdown', () => {
-            window.open('https://x.com/peptech', '_blank');
+            window.open('https://x.com/peptech_', '_blank');
         });
 
         textPhaser.setInteractive({ useHandCursor: true });
@@ -111,21 +111,108 @@ export class MainMenu extends Scene {
             textPhaser
         ]);
 
-        const startButton = this.add.text(centerX, centerY + 20 * scaleFactor, 'Start Game', {
+        // Create button style
+        const buttonStyle = {
             fontFamily: 'Arial Black',
             fontSize: `${38 * scaleFactor}px`,
             color: '#ffffff',
             stroke: '#000000',
             strokeThickness: 8 * scaleFactor,
-            align: 'center'
-        }).setOrigin(0.5);
+            align: 'center',
+            backgroundColor: '#4a4a4a',
+            padding: {
+                left: 20 * scaleFactor,
+                right: 20 * scaleFactor,
+                top: 10 * scaleFactor,
+                bottom: 10 * scaleFactor
+            }
+        };
+
+        // Create "Start Game" button with background
+        const startButton = this.add.text(centerX, centerY + 20 * scaleFactor, 'Start Game', buttonStyle).setOrigin(0.5);
 
         startButton.setInteractive({ useHandCursor: true });
-        startButton.on('pointerover', () => startButton.setStyle({ fill: '#f39c12' }));
-        startButton.on('pointerout', () => startButton.setStyle({ fill: '#ffffff' }));
+        startButton.on('pointerover', () => {
+            startButton.setStyle({ fill: '#f39c12' });
+            startButton.setScale(1.05);
+        });
+        startButton.on('pointerout', () => {
+            startButton.setStyle({ fill: '#ffffff' });
+            startButton.setScale(1);
+        });
         startButton.on('pointerdown', () => {
             this.music.stop();
             this.scene.start('LevelSelect');
+        });
+        
+        // Add smaller buttons for feedback, credits, and roadmap
+        const smallButtonStyle = {
+            fontFamily: 'Arial Black',
+            fontSize: `${24 * scaleFactor}px`,
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 4 * scaleFactor,
+            align: 'center',
+            backgroundColor: '#4a4a4a',
+            padding: {
+                left: 15 * scaleFactor,
+                right: 15 * scaleFactor, 
+                top: 8 * scaleFactor,
+                bottom: 8 * scaleFactor
+            }
+        };
+        
+        // Calculate button positions with vertical spacing
+        const buttonSpacing = 20 * scaleFactor;
+        // Increase spacing between "Start Game" and first button
+        const firstButtonY = centerY + 120 * scaleFactor;
+        
+        // Create Feedback button (external link)
+        const feedbackButton = this.add.text(centerX, firstButtonY, 'Feedback', smallButtonStyle).setOrigin(0.5);
+        
+        feedbackButton.setInteractive({ useHandCursor: true });
+        feedbackButton.on('pointerover', () => {
+            feedbackButton.setStyle({ fill: '#f39c12' });
+            feedbackButton.setScale(1.05);
+        });
+        feedbackButton.on('pointerout', () => {
+            feedbackButton.setStyle({ fill: '#ffffff' });
+            feedbackButton.setScale(1);
+        });
+        feedbackButton.on('pointerdown', () => {
+            window.open('https://solidsnekgame.featurebase.app/', '_blank');
+        });
+        
+        // Create Roadmap button (external link) - moved up in order
+        const roadmapButton = this.add.text(centerX, firstButtonY + buttonSpacing + 40 * scaleFactor, 'Roadmap', smallButtonStyle).setOrigin(0.5);
+        
+        roadmapButton.setInteractive({ useHandCursor: true });
+        roadmapButton.on('pointerover', () => {
+            roadmapButton.setStyle({ fill: '#f39c12' });
+            roadmapButton.setScale(1.05);
+        });
+        roadmapButton.on('pointerout', () => {
+            roadmapButton.setStyle({ fill: '#ffffff' });
+            roadmapButton.setScale(1);
+        });
+        roadmapButton.on('pointerdown', () => {
+            window.open('https://solidsnekgame.featurebase.app/roadmap', '_blank');
+        });
+        
+        // Create Credits button (internal link) - moved to the end
+        const creditsButton = this.add.text(centerX, firstButtonY + (buttonSpacing + 40 * scaleFactor) * 2, 'Credits', smallButtonStyle).setOrigin(0.5);
+
+        creditsButton.setInteractive({ useHandCursor: true });
+        creditsButton.on('pointerover', () => {
+            creditsButton.setStyle({ fill: '#f39c12' });
+            creditsButton.setScale(1.05);
+        });
+        creditsButton.on('pointerout', () => {
+            creditsButton.setStyle({ fill: '#ffffff' });
+            creditsButton.setScale(1);
+        });
+        creditsButton.on('pointerdown', () => {
+            this.scene.start('Credits'); // Navigate to the Credits scene
         });
         
         // Add sound control button in the top-right corner

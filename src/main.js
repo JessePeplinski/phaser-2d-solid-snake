@@ -2,7 +2,8 @@ import { Boot } from './scenes/Boot';
 import { Game } from './scenes/Game';
 import { MainMenu } from './scenes/MainMenu';
 import { Preloader } from './scenes/Preloader';
-import { LevelSelect } from './scenes/LevelSelect';  // Import the new scene
+import { LevelSelect } from './scenes/LevelSelect';
+import { Credits } from './scenes/Credits'; // Import the new Credits scene
 import VirtualJoystickPlugin from 'phaser3-rex-plugins/plugins/virtualjoystick-plugin.js';
 
 import { AUTO, Scale, Physics } from 'phaser';
@@ -28,7 +29,8 @@ const config = {
         Boot,
         Preloader,
         MainMenu,
-        LevelSelect,  // Add the LevelSelect scene
+        LevelSelect,
+        Credits,    // Add the Credits scene
         Game,
     ],
     plugins: {
