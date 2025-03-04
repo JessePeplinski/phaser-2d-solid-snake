@@ -12,11 +12,11 @@
     "file.lastUsedOpenFilter": "All Files (*)",
     "fileStates": {
         "assets/tilemaps/level1.tmx": {
-            "scale": 0.5,
+            "scale": 1.5,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": -267,
-                "y": -568
+                "x": 271.66666666666663,
+                "y": 266
             }
         },
         "assets/tilemaps/level2.tmx": {
@@ -70,10 +70,11 @@
     ],
     "project": "phaser-2d-solid-snake.tiled-project",
     "recentFiles": [
-        "assets/tilemaps/level4.tmx",
         "assets/tilemaps/level1.tmx",
-        "assets/tilemaps/tileset.tsx",
+        "assets/tilemaps/level4.tmx",
         "assets/tilemaps/level2.tmx",
+        "assets/tilemaps/level3.tmx",
+        "assets/tilemaps/tileset.tsx",
         "level1.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",
