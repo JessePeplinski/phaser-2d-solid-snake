@@ -1081,8 +1081,10 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
     updateVisionCone() {
         this.graphics.clear();
         
-        // Always draw patrol path regardless of debug mode
-        this.drawPatrolPath();
+        // Only draw patrol path if in debug mode
+        if (this.scene.showDebug) {
+            this.drawPatrolPath();
+        }
         
         // Draw vision cone with color based on alert state
         let visionColor = 0xffff00; // Default yellow
@@ -1136,44 +1138,47 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         this.graphics.closePath();
         this.graphics.fillPath();
         
-        // Draw investigation points if searching
-        if (this.alertState === this.alertStates.SEARCHING && 
-            this.playerMemory.investigationPoints.length > 0) {
-            
-            this.graphics.lineStyle(1, 0xffaa00, 0.8);
-            
-            // Draw all investigation points
-            for (let i = 0; i < this.playerMemory.investigationPoints.length; i++) {
-                const point = this.playerMemory.investigationPoints[i];
-                const isCurrent = i === this.playerMemory.currentInvestigationPoint;
+        // Only show debug visualizations if in debug mode
+        if (this.scene.showDebug) {
+            // Draw investigation points if searching
+            if (this.alertState === this.alertStates.SEARCHING && 
+                this.playerMemory.investigationPoints.length > 0) {
                 
-                // Draw circle for each point, bigger circle for current target
-                this.graphics.strokeCircle(point.x, point.y, isCurrent ? 12 : 6);
+                this.graphics.lineStyle(1, 0xffaa00, 0.8);
                 
-                // Draw line to the current investigation point
-                if (isCurrent) {
-                    this.graphics.beginPath();
-                    this.graphics.moveTo(this.x, this.y);
-                    this.graphics.lineTo(point.x, point.y);
-                    this.graphics.strokePath();
+                // Draw all investigation points
+                for (let i = 0; i < this.playerMemory.investigationPoints.length; i++) {
+                    const point = this.playerMemory.investigationPoints[i];
+                    const isCurrent = i === this.playerMemory.currentInvestigationPoint;
+                    
+                    // Draw circle for each point, bigger circle for current target
+                    this.graphics.strokeCircle(point.x, point.y, isCurrent ? 12 : 6);
+                    
+                    // Draw line to the current investigation point
+                    if (isCurrent) {
+                        this.graphics.beginPath();
+                        this.graphics.moveTo(this.x, this.y);
+                        this.graphics.lineTo(point.x, point.y);
+                        this.graphics.strokePath();
+                    }
                 }
             }
-        }
-        
-        // Draw last known player position if in alert/searching state
-        if ((this.alertState === this.alertStates.SEARCHING || 
-             this.alertState === this.alertStates.ALERT || 
-             this.alertState === this.alertStates.SUSPICIOUS) && 
-            this.playerMemory.lastKnownPosition) {
             
-            const pos = this.playerMemory.lastKnownPosition;
-            this.graphics.lineStyle(2, 0xff0000, 0.8);
-            this.graphics.strokeCircle(pos.x, pos.y, 15);
-            this.graphics.fillStyle(0xff0000, 0.5);
-            this.graphics.fillCircle(pos.x, pos.y, 5);
+            // Draw last known player position if in alert/searching state
+            if ((this.alertState === this.alertStates.SEARCHING || 
+                this.alertState === this.alertStates.ALERT || 
+                this.alertState === this.alertStates.SUSPICIOUS) && 
+                this.playerMemory.lastKnownPosition) {
+                
+                const pos = this.playerMemory.lastKnownPosition;
+                this.graphics.lineStyle(2, 0xff0000, 0.8);
+                this.graphics.strokeCircle(pos.x, pos.y, 15);
+                this.graphics.fillStyle(0xff0000, 0.5);
+                this.graphics.fillCircle(pos.x, pos.y, 5);
+            }
         }
     }
-    
+        
     // Separate method to draw patrol path for clarity
     drawPatrolPath() {
         // Only draw if there's a path to draw
@@ -1222,32 +1227,8 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 this.graphics.fillCircle(targetX, targetY, 4);
             }
             
-            // Add a highlight for the AI's current state
-            let stateColor;
-            switch (this.alertState) {
-                case this.alertStates.PATROL:
-                    stateColor = 0x00ff00; // Green for patrol
-                    break;
-                case this.alertStates.SUSPICIOUS:
-                    stateColor = 0xffff00; // Yellow for suspicious
-                    break;
-                case this.alertStates.SEARCHING:
-                    stateColor = 0xff7700; // Orange for searching
-                    break;
-                case this.alertStates.ALERT:
-                    stateColor = 0xff0000; // Red for alert
-                    break;
-                case this.alertStates.RETURNING:
-                    stateColor = 0x0000ff; // Blue for returning to patrol
-                    break;
-                default:
-                    stateColor = 0xffffff; // White for unknown
-                    break;
-            }
-            
-            // Draw a state indicator above the AI
-            this.graphics.fillStyle(stateColor, 0.8);
-            this.graphics.fillCircle(this.x, this.y - 20, 4);
+            // Remove the state indicator circle (which was drawn above the AI)
+            // Since we want it gone in both debug and non-debug mode
         }
     }
     

@@ -485,10 +485,19 @@ export class Game extends Scene {
             this.updateHelpText();
         }
         
-        // Force the enemies to update their vision cones which also draws patrol paths
+        // Force the enemies to update their vision cones and patrol paths
+        // This is the key part - make sure all enemies redraw based on current showDebug state
         this.enemies.forEach(enemy => {
             enemy.updateVisionCone();
         });
+        
+        // Clear patrol path graphics if debug is turned off
+        if (!this.showDebug) {
+            this.patrolPathGraphics.clear();
+        } else {
+            // Redraw patrol paths if debug is turned on
+            this.visualizePatrolPaths();
+        }
         
         console.log(`Debug mode: ${this.showDebug ? 'ON' : 'OFF'}`);
     }
@@ -640,7 +649,7 @@ export class Game extends Scene {
     visualizePatrolPaths() {
         this.patrolPathGraphics.clear();
         
-        // Only show if debug is enabled
+        // Only show if debug is enabled - early return if debug is not enabled
         if (!this.showDebug) {
             return;
         }
