@@ -97,3 +97,8 @@ The AI view (non-debug menu) in the game screen is showing too much that should 
 Can you move the following into the debug menu:
 1. The drawn paths should be moved into the debug.
 2. The small circle that diplays above the AI can be removed in both debug and non-debug mode. 
+
+# Question
+My AI pathing behavior is not working very well when there are more than one AI introduced. They seem to jump around to each others paths and patterns. 
+
+Can you update the pathfinding so that when the AI spawns, they remain on the path that they originally started on?

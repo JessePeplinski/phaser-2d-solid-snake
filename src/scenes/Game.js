@@ -920,6 +920,179 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
         }
         
         console.log(`Total enemies spawned: ${this.enemies.length}`);
+        
+        // Now identify and assign distinct patrol paths to each enemy
+        this.assignPatrolPathsToEnemies();
+    }
+
+    // New method to assign patrol paths to enemies
+    assignPatrolPathsToEnemies() {
+        // First, collect all patrol points
+        const patrolPoints = [];
+        this.layer.forEachTile(tile => {
+            if (tile.index === 34) {
+                patrolPoints.push({
+                    x: tile.pixelX + tile.width / 2,
+                    y: tile.pixelY + tile.height / 2,
+                    tileX: tile.x,
+                    tileY: tile.y
+                });
+            }
+        });
+        
+        if (patrolPoints.length === 0) {
+            console.log('No patrol points found. Enemies will use wander behavior.');
+            return;
+        }
+        
+        // Identify distinct patrol paths
+        const patrolPaths = this.identifyDistinctPatrolPaths(patrolPoints);
+        console.log(`Identified ${patrolPaths.length} distinct patrol paths`);
+        
+        // If there's only one path, assign it to all enemies
+        if (patrolPaths.length === 1) {
+            this.enemies.forEach(enemy => {
+                enemy.assignPatrolPath(patrolPaths[0]);
+            });
+            return;
+        }
+        
+        // If there are multiple paths, assign each enemy to its closest path
+        this.enemies.forEach((enemy, index) => {
+            // Find the closest patrol path for this enemy
+            let closestPathIndex = 0;
+            let shortestDistance = Infinity;
+            
+            patrolPaths.forEach((path, pathIndex) => {
+                // Check distance to each point in the path
+                path.forEach(point => {
+                    const distance = Phaser.Math.Distance.Between(
+                        enemy.x, enemy.y,
+                        point.x, point.y
+                    );
+                    
+                    if (distance < shortestDistance) {
+                        shortestDistance = distance;
+                        closestPathIndex = pathIndex;
+                    }
+                });
+            });
+            
+            // Assign the closest path to this enemy
+            enemy.assignPatrolPath(patrolPaths[closestPathIndex]);
+            console.log(`Enemy ${index} assigned to patrol path ${closestPathIndex} with ${patrolPaths[closestPathIndex].length} points`);
+        });
+    }
+
+    // Helper method to identify distinct patrol paths
+    identifyDistinctPatrolPaths(allPoints) {
+        if (allPoints.length === 0) return [];
+        
+        // Create a copy of all points to work with
+        const points = [...allPoints];
+        const paths = [];
+        const maxPathDistance = 48; // Maximum distance between points to be considered part of the same path
+        
+        // Process until all points have been assigned to paths
+        while (points.length > 0) {
+            // Start a new path with the first available point
+            const currentPath = [points.shift()];
+            let addedPoint = true;
+            
+            // Keep adding nearby points to the current path
+            while (addedPoint) {
+                addedPoint = false;
+                
+                // Check each remaining point to see if it's close to any point in the current path
+                for (let i = 0; i < points.length; i++) {
+                    let isClose = false;
+                    
+                    // Check distance to each point in the current path
+                    for (const pathPoint of currentPath) {
+                        const distance = Phaser.Math.Distance.Between(
+                            points[i].x, points[i].y,
+                            pathPoint.x, pathPoint.y
+                        );
+                        
+                        if (distance <= maxPathDistance) {
+                            isClose = true;
+                            break;
+                        }
+                    }
+                    
+                    // If this point is close to the current path, add it
+                    if (isClose) {
+                        currentPath.push(points.splice(i, 1)[0]);
+                        addedPoint = true;
+                        break;
+                    }
+                }
+            }
+            
+            // If we found a valid path (at least 2 points), add it
+            if (currentPath.length >= 2) {
+                // Order the path points for smoother patrolling
+                const sortedPath = this.createConnectedPath(currentPath);
+                paths.push(sortedPath);
+            } else if (currentPath.length === 1) {
+                // For single points, we'll create a small circular path around it
+                const center = currentPath[0];
+                const radius = 32; // Small radius for circular patrol
+                const circularPath = [];
+                
+                // Create 4 points around the center to form a small square
+                circularPath.push({
+                    x: center.x - radius,
+                    y: center.y - radius
+                });
+                circularPath.push({
+                    x: center.x + radius,
+                    y: center.y - radius
+                });
+                circularPath.push({
+                    x: center.x + radius,
+                    y: center.y + radius
+                });
+                circularPath.push({
+                    x: center.x - radius,
+                    y: center.y + radius
+                });
+                
+                paths.push(circularPath);
+            }
+        }
+        
+        return paths;
+    }
+
+    // Helper method to create a connected path
+    createConnectedPath(points) {
+        if (points.length <= 1) return points;
+        
+        const path = [points[0]];
+        const remaining = points.slice(1);
+        
+        while (remaining.length > 0) {
+            const lastPoint = path[path.length - 1];
+            let closestIndex = 0;
+            let closestDistance = Infinity;
+            
+            for (let i = 0; i < remaining.length; i++) {
+                const distance = Phaser.Math.Distance.Between(
+                    lastPoint.x, lastPoint.y,
+                    remaining[i].x, remaining[i].y
+                );
+                
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestIndex = i;
+                }
+            }
+            
+            path.push(remaining.splice(closestIndex, 1)[0]);
+        }
+        
+        return path;
     }
 
     // Update all enemies in the scene

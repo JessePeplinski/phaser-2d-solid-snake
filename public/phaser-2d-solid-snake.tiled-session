@@ -20,19 +20,19 @@
             }
         },
         "assets/tilemaps/level2.tmx": {
-            "scale": 1,
+            "scale": 0.75,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": -212.5,
-                "y": -843
+                "x": 178,
+                "y": -452
             }
         },
         "assets/tilemaps/level3.tmx": {
-            "scale": 0.5,
+            "scale": 1,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": -69,
-                "y": -808
+                "x": -126.5,
+                "y": -685
             }
         },
         "assets/tilemaps/level4.tmx": {

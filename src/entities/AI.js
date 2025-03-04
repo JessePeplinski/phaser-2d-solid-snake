@@ -74,11 +74,12 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         this.alertIndicator.setOrigin(0.5, 0.5);
         this.alertIndicator.setVisible(false);
         
-        // Patrol variables
+        // Patrol variables - we no longer auto-find patrol paths in constructor
         this.patrolPath = [];
         this.currentPatrolPointIndex = 0;
         this.patrolDirection = 1; // 1 for forward, -1 for backward
         this.patrolSpeed = 60; // Reduced patrol speed for more natural patrolling
+        this.hasAssignedPath = false; // Track if a path has been assigned
         
         // Variables for smooth turning
         this.turnSpeed = 0.05; // How quickly to change direction (in radians per frame)
@@ -105,54 +106,17 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         
         // Set a tint color to distinguish from player (slightly reddish)
         this.setTint(0xff9999);
-        
-        // Find patrol path
-        this.findPatrolPath();
     }
     
-    // Find patrol path based on tile index 34
-    findPatrolPath() {
-        // Get all patrol path tiles
-        const patrolTiles = [];
-        this.scene.layer.forEachTile(tile => {
-            if (tile.index === 34) {
-                patrolTiles.push({
-                    x: tile.pixelX + tile.width / 2, 
-                    y: tile.pixelY + tile.height / 2,
-                    tileX: tile.x,
-                    tileY: tile.y
-                });
-            }
-        });
-        
-        if (patrolTiles.length === 0) {
-            console.log('No patrol path tiles found. Using wander behavior.');
-            this.alertState = this.alertStates.PATROL;
-            this.wanderDirection = new Phaser.Math.Vector2(0, 0);
-            this.wanderTimer = 0;
-            this.wanderChangeTime = 2000;
+    // New method to assign a specific patrol path to this AI
+    assignPatrolPath(pathPoints) {
+        if (!pathPoints || pathPoints.length === 0) {
+            console.log('Attempted to assign empty patrol path to AI');
             return;
         }
         
-        // Check if the patrol path forms a rectangle/square (common case)
-        const pathIsRectangle = this.isRectanglePath(patrolTiles);
-        
-        if (pathIsRectangle) {
-            console.log('Detected rectangular patrol path');
-            // If it's a rectangle, extract only the perimeter points
-            this.patrolPath = this.createRectanglePerimeterPath(patrolTiles);
-        } else {
-            // Sort the patrol tiles into a connected path
-            this.patrolPath = this.createConnectedPath(patrolTiles);
-        }
-        
-        // Validate the patrol path - make sure each point has valid coordinates
-        this.patrolPath = this.patrolPath.filter(point => 
-            point !== null && 
-            point !== undefined && 
-            point.x !== undefined && 
-            point.y !== undefined
-        );
+        this.patrolPath = pathPoints;
+        this.hasAssignedPath = true;
         
         // Find nearest patrol point to start from
         this.currentPatrolPointIndex = this.findClosestPathPointIndex();
@@ -160,12 +124,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         // Calculate initial path segment length
         this.updatePathSegmentLength();
         
-        console.log(`Created patrol path with ${this.patrolPath.length} points`);
-        
-        // Debug log the first few points
-        if (this.patrolPath.length > 0) {
-            console.log('First patrol point:', this.patrolPath[0]);
-        }
+        console.log(`AI assigned patrol path with ${this.patrolPath.length} points`);
     }
     
     // Calculate the length of the current path segment
@@ -201,6 +160,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 // For open paths, we'll reverse direction at the end
                 nextIndex = this.patrolPath.length - 2;
                 if (nextIndex < 0) nextIndex = 0; // Safety check
+                this.patrolDirection = -1;
             }
         } else if (nextIndex < 0) {
             // For closed loop paths, loop to the end
@@ -210,6 +170,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 // For open paths, we'll reverse direction at the start
                 nextIndex = 1;
                 if (nextIndex >= this.patrolPath.length) nextIndex = this.patrolPath.length - 1; // Safety check
+                this.patrolDirection = 1;
             }
         }
         
@@ -231,182 +192,6 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         
         // If the first and last points are close enough, it's a closed loop
         return distance <= 32; // Within 2 tiles
-    }
-    
-    // Check if path tiles form a rectangle
-    isRectanglePath(tiles) {
-        if (tiles.length < 4) return false;
-        
-        // Get unique X and Y coordinates
-        const uniqueXs = new Set(tiles.map(t => t.tileX));
-        const uniqueYs = new Set(tiles.map(t => t.tileY));
-        
-        // A rectangle path should have exactly 2 or more unique Xs and 2 or more unique Ys
-        return uniqueXs.size >= 2 && uniqueYs.size >= 2;
-    }
-    
-    // Create a path that follows only the perimeter of a rectangle
-    createRectanglePerimeterPath(tiles) {
-        // Get the bounds of the rectangle
-        const xValues = tiles.map(t => t.tileX);
-        const yValues = tiles.map(t => t.tileY);
-        
-        const minX = Math.min(...xValues);
-        const maxX = Math.max(...xValues);
-        const minY = Math.min(...yValues);
-        const maxY = Math.max(...yValues);
-        
-        // Create a path that follows the perimeter clockwise
-        const perimeterPoints = [];
-        
-        // Helper to find a tile at specific coordinates
-        const findTileAt = (x, y) => {
-            return tiles.find(t => t.tileX === x && t.tileY === y);
-        };
-        
-        // For very large rectangles, we'll use corner points and midpoints
-        // to create a smoother path with fewer points
-        if ((maxX - minX > 10) || (maxY - minY > 10)) {
-            // Just use the four corners and midpoints for large rectangles
-            
-            // Top-left corner
-            let tile = findTileAt(minX, minY);
-            if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
-            
-            // Top-middle
-            tile = findTileAt(Math.floor((minX + maxX) / 2), minY);
-            if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
-            
-            // Top-right corner
-            tile = findTileAt(maxX, minY);
-            if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
-            
-            // Right-middle
-            tile = findTileAt(maxX, Math.floor((minY + maxY) / 2));
-            if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
-            
-            // Bottom-right corner
-            tile = findTileAt(maxX, maxY);
-            if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
-            
-            // Bottom-middle
-            tile = findTileAt(Math.floor((minX + maxX) / 2), maxY);
-            if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
-            
-            // Bottom-left corner
-            tile = findTileAt(minX, maxY);
-            if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
-            
-            // Left-middle
-            tile = findTileAt(minX, Math.floor((minY + maxY) / 2));
-            if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
-        } else {
-            // For smaller rectangles, use more detailed perimeter
-            
-            // Top edge (left to right)
-            for (let x = minX; x <= maxX; x += 2) { // Skip every other tile for smoother movement
-                const tile = findTileAt(x, minY);
-                if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
-            }
-            
-            // Right edge (top to bottom)
-            for (let y = minY + 2; y <= maxY; y += 2) { // Skip every other tile
-                const tile = findTileAt(maxX, y);
-                if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
-            }
-            
-            // Bottom edge (right to left)
-            for (let x = maxX - 2; x >= minX; x -= 2) { // Skip every other tile
-                const tile = findTileAt(x, maxY);
-                if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
-            }
-            
-            // Left edge (bottom to top)
-            for (let y = maxY - 2; y > minY; y -= 2) { // Skip every other tile
-                const tile = findTileAt(minX, y);
-                if (tile) perimeterPoints.push({ x: tile.x, y: tile.y });
-            }
-        }
-        
-        // For very small paths with few points, create a balanced path
-        if (perimeterPoints.length < 4) {
-            // Fill in any missing corner
-            const corners = [
-                { x: minX, y: minY }, // Top-left
-                { x: maxX, y: minY }, // Top-right
-                { x: maxX, y: maxY }, // Bottom-right
-                { x: minX, y: maxY }  // Bottom-left
-            ];
-            
-            for (const corner of corners) {
-                const tile = findTileAt(corner.x, corner.y);
-                if (tile && !perimeterPoints.some(p => p.x === tile.x && p.y === tile.y)) {
-                    perimeterPoints.push({ x: tile.x, y: tile.y });
-                }
-            }
-        }
-        
-        return perimeterPoints;
-    }
-    
-    // Create a connected path based on proximity
-    createConnectedPath(tiles) {
-        if (tiles.length === 0) return [];
-        
-        // Convert tiles to simpler points for path creation
-        const simplifiedTiles = tiles.map(tile => ({
-            x: tile.x,
-            y: tile.y,
-            tileX: tile.tileX,
-            tileY: tile.tileY
-        }));
-        
-        const path = [simplifiedTiles[0]];
-        const remainingTiles = simplifiedTiles.slice(1);
-        
-        // Build path by finding the closest next point
-        while (remainingTiles.length > 0) {
-            const lastPoint = path[path.length - 1];
-            
-            // Find index of closest remaining tile
-            let closestIndex = 0;
-            let closestDistance = Infinity;
-            
-            for (let i = 0; i < remainingTiles.length; i++) {
-                const distance = Phaser.Math.Distance.Between(
-                    lastPoint.x, lastPoint.y,
-                    remainingTiles[i].x, remainingTiles[i].y
-                );
-                
-                if (distance < closestDistance) {
-                    closestDistance = distance;
-                    closestIndex = i;
-                }
-            }
-            
-            // Add the closest point to the path
-            path.push(remainingTiles[closestIndex]);
-            
-            // Remove it from remaining tiles
-            remainingTiles.splice(closestIndex, 1);
-        }
-        
-        // Optional: Reduce the number of points for a smoother path if there are many points
-        // This helps avoid jerky movement on dense paths
-        if (path.length > 8) {
-            // Only keep every Nth point for smoother movement
-            const smoothPath = [];
-            for (let i = 0; i < path.length; i += 2) {
-                smoothPath.push(path[i]);
-            }
-            // Make sure the path is closed by adding the first point at the end if needed
-            if (smoothPath[0] !== smoothPath[smoothPath.length - 1]) {
-                smoothPath.push(path[0]);
-            }
-            return smoothPath;
-        }
-        
-        return path;
     }
     
     // Find the closest patrol point index to the AI's current position
@@ -472,7 +257,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         // State machine for AI behavior
         switch (this.alertState) {
             case this.alertStates.PATROL:
-                if (this.patrolPath.length > 0) {
+                if (this.hasAssignedPath && this.patrolPath.length > 0) {
                     this.followPatrolPathContinuous(delta);
                 } else {
                     this.wander(time, delta);
@@ -520,7 +305,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 
             case this.alertStates.RETURNING:
                 // Return to patrol path
-                if (this.patrolPath.length > 0) {
+                if (this.hasAssignedPath && this.patrolPath.length > 0) {
                     // Find the nearest patrol point
                     const closestIndex = this.findClosestPathPointIndex();
                     const target = this.patrolPath[closestIndex];
@@ -697,7 +482,6 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
     }
     
     // Generate points to search around the last known player position
-    // Improved search point generation to ensure AI actually has points to check
     generateSearchPoints(position) {
         if (!position) return;
         
@@ -946,7 +730,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
     
     // New method for continuous patrol movement
     followPatrolPathContinuous(delta) {
-        if (this.patrolPath.length <= 1) {
+        if (!this.hasAssignedPath || this.patrolPath.length <= 1) {
             this.alertState = this.alertStates.PATROL;
             this.wander(0, delta);
             return;
@@ -979,25 +763,8 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             
             // For paths with more than 2 points that are NOT rectangles/squares,
             // reverse direction at endpoints
-            if (this.patrolPath.length > 2 && isEndPoint) {
-                // Check if this is a rectangle/square path by checking if the first and
-                // last points of the path are connected (making a loop)
-                const firstPoint = this.patrolPath[0];
-                const lastPoint = this.patrolPath[this.patrolPath.length - 1];
-                const distance = Phaser.Math.Distance.Between(
-                    firstPoint.x, firstPoint.y,
-                    lastPoint.x, lastPoint.y
-                );
-                
-                // If the first and last points are far apart, it's not a loop
-                // so we should reverse direction
-                if (distance > 32) { // More than 2 tiles apart
-                    this.patrolDirection *= -1;
-                } else if (this.currentPatrolPointIndex === this.patrolPath.length - 1) {
-                    // We're at the end of a loop, so go back to index 0 instead of reversing
-                    this.currentPatrolPointIndex = 0;
-                    this.updatePathSegmentLength();
-                }
+            if (this.patrolPath.length > 2 && isEndPoint && !this.isClosedLoopPath()) {
+                this.patrolDirection *= -1;
             }
         }
         
@@ -1214,7 +981,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
     // Separate method to draw patrol path for clarity
     drawPatrolPath() {
         // Only draw if there's a path to draw
-        if (this.patrolPath.length <= 0) return;
+        if (!this.hasAssignedPath || this.patrolPath.length <= 0) return;
         
         // Draw patrol path
         this.graphics.lineStyle(2, 0x00ff00, 0.5);
@@ -1231,8 +998,10 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 }
             }
             
-            // Connect back to the start to complete the loop
-            this.graphics.lineTo(this.patrolPath[0].x, this.patrolPath[0].y);
+            // Connect back to the start for closed loops
+            if (this.isClosedLoopPath()) {
+                this.graphics.lineTo(this.patrolPath[0].x, this.patrolPath[0].y);
+            }
             
             this.graphics.strokePath();
             
@@ -1258,9 +1027,6 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 this.graphics.fillStyle(0x00ffff, 0.7);
                 this.graphics.fillCircle(targetX, targetY, 4);
             }
-            
-            // Remove the state indicator circle (which was drawn above the AI)
-            // Since we want it gone in both debug and non-debug mode
         }
     }
     
