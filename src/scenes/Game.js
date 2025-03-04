@@ -16,12 +16,12 @@ class Minimap {
             width: 160,
             height: 120,
             scale: 0.1,
-            borderThickness: 2,
-            backgroundColor: 0x000000,
+            borderThickness: 1,
+            backgroundColor: 0x001918,
             backgroundAlpha: 0.5,
             borderColor: 0xffffff,
             playerColor: 0x00ff00,
-            wallColor: 0x444444,
+            wallColor: 0x175E45,
             exitColor: 0x00ffff,
             spawnColor: 0x66ff66,
             enemyColors: {
@@ -30,7 +30,10 @@ class Minimap {
                 searching: 0xff9900,    // Orange - medium alert
                 alert: 0xff0000,        // Red - high alert
                 returning: 0x0099ff     // Blue - returning to patrol
-            }
+            },
+            // Flash timing configuration
+            flashVisibleDuration: 200,  // How long entities remain visible (ms)
+            flashHiddenDuration: 100    // How long entities remain hidden (ms)
         };
         
         // Apply any custom options
@@ -84,8 +87,62 @@ class Minimap {
         this.alertText.setOrigin(0.5, 0);
         this.container.add(this.alertText);
         
+        // Set up flashing behavior for entities
+        this.flashVisible = true;
+        this.currentFlashDuration = this.config.flashVisibleDuration;
+        this.setupFlashTimer();
+        
         // Draw the map layout once
         this.drawMapLayout();
+    }
+    
+    // Setup the flash timer
+    setupFlashTimer() {
+        // Clear any existing timer
+        if (this.flashTimer) {
+            this.flashTimer.remove();
+        }
+        
+        // Create new timer with current duration
+        this.flashTimer = this.scene.time.addEvent({
+            delay: this.currentFlashDuration,
+            callback: this.toggleFlash,
+            callbackScope: this,
+            loop: false  // We'll reset the timer with new duration each time
+        });
+    }
+    
+    // Toggle flash visibility state and update timer duration
+    toggleFlash() {
+        // Toggle visibility
+        this.flashVisible = !this.flashVisible;
+        
+        // Set the appropriate duration based on current state
+        if (this.flashVisible) {
+            // Entities just became visible, use visible duration
+            this.currentFlashDuration = this.config.flashVisibleDuration;
+        } else {
+            // Entities just became hidden, use hidden duration
+            this.currentFlashDuration = this.config.flashHiddenDuration;
+        }
+        
+        // Reset the timer with new duration
+        this.setupFlashTimer();
+    }
+    
+    // Method to update flash timing settings
+    setFlashTiming(visibleDuration, hiddenDuration) {
+        // Update config values
+        this.config.flashVisibleDuration = visibleDuration;
+        this.config.flashHiddenDuration = hiddenDuration;
+        
+        // Update current duration based on current visibility state
+        this.currentFlashDuration = this.flashVisible ? 
+            this.config.flashVisibleDuration : 
+            this.config.flashHiddenDuration;
+            
+        // Reset the timer with new duration
+        this.setupFlashTimer();
     }
     
     // Draw the map layout including walls, spawn point, and exit
@@ -136,29 +193,34 @@ class Minimap {
         const scaleX = this.config.width / mapWidth;
         const scaleY = this.config.height / mapHeight;
         
-        // Draw player
-        const playerX = player.x * scaleX;
-        const playerY = player.y * scaleY;
+        // Only draw entities if they should be visible in the current flash state
+        if (this.flashVisible) {
+            // Draw player
+            const playerX = player.x * scaleX;
+            const playerY = player.y * scaleY;
+            
+            this.entitiesGraphics.fillStyle(this.config.playerColor, 1);
+            this.entitiesGraphics.fillCircle(playerX, playerY, 4);
+            
+            // Draw enemies
+            enemies.forEach(enemy => {
+                const enemyX = enemy.x * scaleX;
+                const enemyY = enemy.y * scaleY;
+                
+                // Select color based on alert state
+                const color = this.config.enemyColors[enemy.alertState] || 0xffffff;
+                
+                // Draw enemy
+                this.entitiesGraphics.fillStyle(color, 1);
+                this.entitiesGraphics.fillCircle(enemyX, enemyY, 3);
+            });
+        }
         
-        this.entitiesGraphics.fillStyle(this.config.playerColor, 1);
-        this.entitiesGraphics.fillCircle(playerX, playerY, 4);
-        
-        // Draw enemies and track alert states
+        // Track highest alert level for the text display
         let highestAlertState = '';
         let highestAlertLevel = 0;
         
         enemies.forEach(enemy => {
-            const enemyX = enemy.x * scaleX;
-            const enemyY = enemy.y * scaleY;
-            
-            // Select color based on alert state
-            const color = this.config.enemyColors[enemy.alertState] || 0xffffff;
-            
-            // Draw enemy
-            this.entitiesGraphics.fillStyle(color, 1);
-            this.entitiesGraphics.fillCircle(enemyX, enemyY, 3);
-            
-            // Track highest alert level for the text display
             if (enemy.alertLevel > highestAlertLevel) {
                 highestAlertLevel = enemy.alertLevel;
                 highestAlertState = enemy.alertState;
@@ -200,6 +262,11 @@ class Minimap {
     }
     
     destroy() {
+        // Clean up the flash timer
+        if (this.flashTimer) {
+            this.flashTimer.remove();
+            this.flashTimer = null;
+        }
         this.container.destroy();
     }
 }
