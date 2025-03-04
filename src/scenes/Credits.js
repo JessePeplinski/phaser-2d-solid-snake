@@ -51,7 +51,8 @@ export class Credits extends Scene {
             {
                 header: 'Sound Effects',
                 items: [
-                    { name: 'Intro Music', url: 'https://pixabay.com/sound-effects/mgs-first-one-my-own-version-of-music-by-kris-demo-sample-done-on-ableton-live-and-made-up-31742/' }
+                    { name: 'Intro Music', url: 'https://pixabay.com/sound-effects/mgs-first-one-my-own-version-of-music-by-kris-demo-sample-done-on-ableton-live-and-made-up-31742/' },
+                    { name: 'Footsteps', url: 'https://pixabay.com/sound-effects/footstep-1-83098//' }
                 ]
             },
             {
