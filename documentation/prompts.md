@@ -169,3 +169,7 @@ I've recently implemented a new way to make this game responsive. However, playi
 2. I'm not able to take advantage of any of the vertical screen space I have. 
 
 Is there a good solution for these issues I'm having? 
+
+# Game UI Improvements
+1. Under the game's minimap: Display the level, time remaining, and alert status at all times underneath the minimap. Make it the same size as the current alert text. Then remove the level and time remaining from the upper left hand corner. 
+2. Move the "Main menu" button location from behind the minimap to the upper left hand corner of the screen. 

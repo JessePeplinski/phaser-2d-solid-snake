@@ -7,6 +7,7 @@ import { AI } from '../entities/AI';
 // just before the Game class definition
 
 class Minimap {
+    // Update the Minimap class constructor to position the alertText better
     constructor(scene, options = {}) {
         this.scene = scene;
         
@@ -72,7 +73,8 @@ class Minimap {
         // Add to container
         this.container.add([this.background, this.border, this.mapGraphics, this.entitiesGraphics]);
         
-        // Create 'alerting' text
+        // Create 'alerting' text - positioned below the minimap
+        // This will now also show level and time information
         this.alertText = scene.add.text(
             this.config.width / 2, 
             this.config.height + 5, 
@@ -184,7 +186,8 @@ class Minimap {
         });
     }
     
-    update(player, enemies = []) {
+    // Update the Minimap class's update method to display level and time information
+    update(player, enemies = [], levelInfo = {}) {
         this.entitiesGraphics.clear();
         
         // Calculate world to minimap scale
@@ -228,7 +231,15 @@ class Minimap {
             }
         });
         
-        // Update alert text based on highest alert state
+        // Construct the display text with level and time info
+        let displayText = '';
+        
+        // Add level and time information if provided
+        if (levelInfo.level !== undefined && levelInfo.timeRemaining !== undefined) {
+            displayText = `Level ${levelInfo.level} - Time: ${levelInfo.timeRemaining}`;
+        }
+        
+        // Add alert status if alert level is high enough
         if (highestAlertLevel > 10) {
             let alertMessage = '';
             let textColor = '#ffffff';
@@ -250,11 +261,19 @@ class Minimap {
                     alertMessage = '';
             }
             
-            this.alertText.setText(alertMessage);
+            // Add alert status to the display text
+            if (displayText && alertMessage) {
+                displayText += ` - ${alertMessage}`;
+            } else if (alertMessage) {
+                displayText = alertMessage;
+            }
+            
+            // Set text color based on alert state
             this.alertText.setStyle({ color: textColor });
-        } else {
-            this.alertText.setText('');
         }
+        
+        // Update the text display
+        this.alertText.setText(displayText);
     }
     
     resize(width, height) {
@@ -453,7 +472,7 @@ export class Game extends Scene {
         this.spawnEnemies();
     }
 
-    // New method to set up UI based on orientation
+    // Updated setupGameUI method for src/scenes/Game.js
     setupGameUI(levelNumber) {
         const { width, height } = this.cameras.main;
         const safeZone = this.ui.getSafeZone();
@@ -463,27 +482,21 @@ export class Game extends Scene {
         if (this.helpText) this.helpText.destroy();
         if (this.menuButton) this.menuButton.destroy();
         
-        // Recreate UI elements with appropriate positioning
+        // Create minimap in top right corner with appropriate size based on orientation
+        if (this.minimap) this.minimap.destroy();
+        
         if (this.ui.isLandscape) {
-            // Landscape layout - UI at top
-            this.timerText = this.ui.createText(
-                safeZone.left + 16, 
-                safeZone.top + 16, 
-                `Level ${levelNumber} - Time remaining: ${this.timeLimit}`, 
-                { fontSize: '18px', fill: '#ffffff' }
-            ).setScrollFactor(0);
+            // Landscape layout
+            this.minimap = new Minimap(this, {
+                x: width - safeZone.right - 180,
+                y: safeZone.top + 20,
+                width: 160,
+                height: 120
+            });
             
-            // Create help text
-            this.helpText = this.ui.createText(
-                safeZone.left + 16, 
-                safeZone.top + 80, 
-                this.getHelpMessage(), 
-                { fontSize: '14px', fill: '#ffffff' }
-            ).setScrollFactor(0).setVisible(false);
-            
-            // Menu button at top right
+            // Move menu button to top left - no timer text needed as it's in the minimap
             this.menuButton = this.ui.createButton(
-                width - safeZone.right - 120, 
+                safeZone.left + 80, 
                 safeZone.top + 16, 
                 'Main Menu', 
                 {
@@ -493,38 +506,28 @@ export class Game extends Scene {
                     padding: { left: 8, right: 8, top: 4, bottom: 4 }
                 },
                 () => this.cleanupAndChangeScene('MainMenu')
-            ).setScrollFactor(0);
-            
-            // Create minimap in top right corner with appropriate size
-            if (this.minimap) this.minimap.destroy();
-            
-            this.minimap = new Minimap(this, {
-                x: width - safeZone.right - 180,
-                y: safeZone.top + 20,
-                width: 160,
-                height: 120
-            });
-        } else {
-            // Portrait layout - more compact UI
-            this.timerText = this.ui.createText(
-                width / 2, 
-                safeZone.top + 16, 
-                `Level ${levelNumber} - Time: ${this.timeLimit}`, 
-                { fontSize: '16px', fill: '#ffffff' }
             ).setScrollFactor(0).setOrigin(0.5, 0);
             
-            // Create help text
+            // Create help text at the bottom left
             this.helpText = this.ui.createText(
                 safeZone.left + 16, 
-                safeZone.top + 60, 
+                safeZone.top + 80, 
                 this.getHelpMessage(), 
-                { fontSize: '12px', fill: '#ffffff' }
+                { fontSize: '14px', fill: '#ffffff' }
             ).setScrollFactor(0).setVisible(false);
+        } else {
+            // Portrait layout - more compact UI
+            this.minimap = new Minimap(this, {
+                x: width - safeZone.right - 120,
+                y: safeZone.top + 20,
+                width: 110,
+                height: 80
+            });
             
-            // Menu button below timer
+            // Move menu button to top left - no timer text needed as it's in the minimap
             this.menuButton = this.ui.createButton(
-                width / 2, 
-                safeZone.top + 45, 
+                safeZone.left + 60, 
+                safeZone.top + 16, 
                 'Menu', 
                 {
                     fontSize: '12px',
@@ -535,16 +538,17 @@ export class Game extends Scene {
                 () => this.cleanupAndChangeScene('MainMenu')
             ).setScrollFactor(0).setOrigin(0.5, 0);
             
-            // Create smaller minimap in corner
-            if (this.minimap) this.minimap.destroy();
-            
-            this.minimap = new Minimap(this, {
-                x: width - safeZone.right - 120,
-                y: safeZone.top + 20,
-                width: 110,
-                height: 80
-            });
+            // Create help text
+            this.helpText = this.ui.createText(
+                safeZone.left + 16, 
+                safeZone.top + 60, 
+                this.getHelpMessage(), 
+                { fontSize: '12px', fill: '#ffffff' }
+            ).setScrollFactor(0).setVisible(false);
         }
+        
+        // Set timerText to null since we're no longer using a separate timer element
+        this.timerText = null;
         
         // Optimize joystick positioning for the current orientation if it exists
         if (this.joystick) {
@@ -833,25 +837,31 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
             return;
         }
 
+        // Get current level number and remaining time for minimap display
+        let levelNumber;
+        let remainingSeconds = 0;
+        
+        if (this.currentLevel === 'map') {
+            levelNumber = 1;
+        } else {
+            levelNumber = parseInt(this.currentLevel.replace('level', '')) || 1;
+        }
+        
+        if (this.timerEvent) {
+            remainingSeconds = Math.ceil((this.timerEvent.delay - this.timerEvent.elapsed) / 1000);
+        }
+        
+        // Update the minimap with level and time info
         if (this.minimap) {
-            this.minimap.update(this.player, this.enemies);
+            this.minimap.update(this.player, this.enemies, {
+                level: levelNumber,
+                timeRemaining: remainingSeconds
+            });
         }
 
         // Call this in the update method:
         if (this.showDebug) {
             this.visualizePatrolPaths();
-        }
-
-        // Update timer text
-        if (this.timerEvent) {
-            let levelNumber;
-            if (this.currentLevel === 'map') {
-                levelNumber = 1;
-            } else {
-                levelNumber = parseInt(this.currentLevel.replace('level', '')) || 1;
-            }
-            const remainingSeconds = Math.ceil((this.timerEvent.delay - this.timerEvent.elapsed) / 1000);
-            this.timerText.setText(`Level ${levelNumber} - Time remaining: ${remainingSeconds}`);
         }
 
         // Reset player velocity
