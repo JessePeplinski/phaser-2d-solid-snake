@@ -166,6 +166,29 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             "Stay alert, we're taking over from here!",
             "Time to wrap this up!"
         ];
+
+        this.returningPhrases = [
+            "Guess it was nothing...",
+            "Must have been the wind.",
+            "Just my imagination.",
+            "False alarm.",
+            "All clear here.",
+            "Probably just a rat.",
+            "Sensors must be malfunctioning.",
+            "Nothing to report.",
+            "Area secure.",
+            "Hmm... thought I saw something.",
+            "Back to regular patrol.",
+            "No sign of intruders.",
+            "System glitch maybe?",
+            "Perimeter still secure.",
+            "Just shadows playing tricks.",
+            "Need to get my vision checked.",
+            "Getting jumpy these days.",
+            "This place gets to you after a while.",
+            "Resume standard patrol pattern.",
+            "Security level nominal again."
+        ];
     }
 
     // Add a new method to display dialogue
@@ -655,15 +678,18 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 // Show "Guess it was nothing" as soon as we start returning
                 // But only if we're coming from a high alert state
                 if ((oldState === this.alertStates.ALERT || 
-                     oldState === this.alertStates.SEARCHING || 
-                     oldState === this.alertStates.SUSPICIOUS) && 
-                    !this.showedReturningDialogue) {
-                    
-                    // Show returning dialogue
-                    this.displayDialogue("Guess it was nothing...");
-                    console.log("Displaying 'Guess it was nothing...' dialogue (when returning)");
-                    this.showedReturningDialogue = true;
-                }
+                    oldState === this.alertStates.SEARCHING || 
+                    oldState === this.alertStates.SUSPICIOUS) && 
+                   !this.showedReturningDialogue) {
+                   
+                   // Choose a random phrase from our collection
+                   const randomPhrase = Phaser.Utils.Array.GetRandom(this.returningPhrases);
+                   
+                   // Show returning dialogue
+                   this.displayDialogue(randomPhrase);
+                   console.log(`Displaying returning dialogue: "${randomPhrase}"`);
+                   this.showedReturningDialogue = true;
+               }
                 break;
         }
     }
