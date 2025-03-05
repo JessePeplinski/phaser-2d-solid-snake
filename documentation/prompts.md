@@ -138,3 +138,9 @@ Please make this update.
 Please make two changes to the AI:
 1. The ! or the !? displays above the enemies head when they enter the low, medium or high alert. When there is no alert state, please remove the ! and the !? from the enemy.   
 2. When returning back to the normal state, show the message above the enemy heads "Guess it was nothing..."
+
+
+# AI: Last known location
+The code I have for the AI searching the "last known" location is not working. I can points plot on the map, but then the AI does not attempt to visit the points. Instead, they remain in one location, and spin in a circle. 
+
+Can you fix or simplify the search for the last known location?
