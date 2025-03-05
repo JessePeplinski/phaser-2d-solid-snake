@@ -1,4 +1,5 @@
 import { Scene } from 'phaser';
+import { ResponsiveUI } from '../utils/ResponsiveUI';
 import { gameProgress } from './GameProgress';
 
 export class LevelSelect extends Scene {
@@ -15,23 +16,25 @@ export class LevelSelect extends Scene {
     }
 
     create() {
+        // Initialize responsive UI helper
+        this.ui = new ResponsiveUI(this);
+        
         const { width, height } = this.cameras.main;
         const centerX = width / 2;
         const centerY = height / 2;
-        const baseWidth = 800;
-        const scaleFactor = width / baseWidth;
-
+        const safeZone = this.ui.getSafeZone();
+        
         // Set background
         const background = this.add.image(centerX, centerY, 'background');
         background.setDisplaySize(width, height);
 
-        // Add title
-        this.add.text(centerX, 100 * scaleFactor, 'Select Level', {
+        // Add title with responsive text
+        this.ui.createText(centerX, safeZone.top + 40, 'Select Level', {
             fontFamily: 'Arial Black',
-            fontSize: `${48 * scaleFactor}px`,
+            fontSize: '48px',
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 6 * scaleFactor,
+            strokeThickness: 6,
             align: 'center'
         }).setOrigin(0.5);
 
@@ -52,6 +55,13 @@ export class LevelSelect extends Scene {
             }
             this.createLevelButtons();
         }
+        
+        // Listen for orientation changes
+        this.scale.on('resize', () => {
+            this.ui.handleResize(this.cameras.main);
+            // Recreate buttons with new layout
+            this.createLevelButtons();
+        });
     }
 
     discoverLevelFiles() {
@@ -82,42 +92,70 @@ export class LevelSelect extends Scene {
         
         const { width, height } = this.cameras.main;
         const centerX = width / 2;
-        const baseWidth = 800;
-        const scaleFactor = width / baseWidth;
+        const safeZone = this.ui.getSafeZone();
         
         // If no levels found, show a message
         if (this.levelFiles.length === 0) {
-            this.add.text(centerX, height / 2, 'No levels found!', {
+            this.ui.createText(centerX, height / 2, 'No levels found!', {
                 fontFamily: 'Arial Black',
-                fontSize: `${32 * scaleFactor}px`,
+                fontSize: '32px',
                 color: '#ffffff',
                 stroke: '#000000',
-                strokeThickness: 4 * scaleFactor,
+                strokeThickness: 4,
                 align: 'center'
             }).setOrigin(0.5);
             
             // Add back button
-            this.createBackButton(scaleFactor);
+            this.createBackButton();
             return;
         }
         
-        // Calculate layout parameters for the grid
-        const buttonWidth = 200 * scaleFactor;
-        const buttonHeight = 60 * scaleFactor;
-        const padding = 20 * scaleFactor;
+        // Calculate layout parameters for the grid based on device
+        // Adapt grid layout based on orientation and device type
+        let columns, rows;
         
-        // Calculate rows and columns for our grid
-        const columns = 3;
-        const rows = 3;
+        if (this.ui.isLandscape) {
+            columns = this.ui.isMobile ? 3 : 4;
+            rows = this.ui.isMobile ? 2 : 3;
+        } else {
+            columns = this.ui.isMobile ? 2 : 3;
+            rows = this.ui.isMobile ? 3 : 3;
+        }
+        
+        // Update levels per page based on the new grid size
+        this.levelsPerPage = columns * rows;
+        
+        // Calculate button sizes based on available space
+        const maxGridWidth = width - safeZone.left - safeZone.right - 40;
+        const maxGridHeight = height - safeZone.top - safeZone.bottom - 200; // Leave room for title and nav buttons
+        
+        const buttonSpacing = this.ui.isMobile ? 10 : 20;
+        const buttonWidth = Math.min(
+            200, 
+            (maxGridWidth - (buttonSpacing * (columns - 1))) / columns
+        );
+        const buttonHeight = Math.min(
+            60, 
+            (maxGridHeight - (buttonSpacing * (rows - 1))) / rows
+        );
         
         // Calculate total levels and pages
         const totalLevels = this.levelFiles.length;
         const totalPages = Math.ceil(totalLevels / this.levelsPerPage);
         
+        // Ensure current page index is valid
+        if (this.pageIndex >= totalPages) {
+            this.pageIndex = Math.max(0, totalPages - 1);
+        }
+        
         // Calculate starting Y position to center the grid vertically
-        const gridHeight = rows * buttonHeight + (rows - 1) * padding;
-        let startY = (height - gridHeight) / 2;
-
+        const gridHeight = rows * buttonHeight + (rows - 1) * buttonSpacing;
+        let startY = safeZone.top + 120;
+        
+        if (gridHeight < maxGridHeight) {
+            startY = safeZone.top + 120 + (maxGridHeight - gridHeight) / 2;
+        }
+        
         // Calculate start and end index for this page
         const startIndex = this.pageIndex * this.levelsPerPage;
         const endIndex = Math.min(startIndex + this.levelsPerPage, totalLevels);
@@ -129,8 +167,11 @@ export class LevelSelect extends Scene {
             const col = relativeIndex % columns;
             
             // Calculate position for this button
-            let buttonX = centerX + (col - 1) * (buttonWidth + padding);
-            let buttonY = startY + row * (buttonHeight + padding);
+            const gridWidth = columns * buttonWidth + (columns - 1) * buttonSpacing;
+            const gridStartX = centerX - gridWidth / 2;
+            
+            let buttonX = gridStartX + (col * (buttonWidth + buttonSpacing)) + buttonWidth / 2;
+            let buttonY = startY + (row * (buttonHeight + buttonSpacing)) + buttonHeight / 2;
             
             // Get level number from filename
             const levelNumber = parseInt(this.levelFiles[i].replace('level', ''));
@@ -159,22 +200,24 @@ export class LevelSelect extends Scene {
                 buttonText = `🔒 Level ${levelNumber}`;
             }
             
-            // Create the button
-            const button = this.add.text(buttonX, buttonY, buttonText, {
+            // Create responsive button
+            const buttonStyle = {
                 fontFamily: 'Arial Black',
-                fontSize: `${24 * scaleFactor}px`,
+                fontSize: '24px', 
                 color: buttonColor,
                 stroke: '#000000',
-                strokeThickness: 4 * scaleFactor,
-                align: 'center',
+                strokeThickness: 4,
                 backgroundColor: buttonBgColor,
+                fixedWidth: buttonWidth,
+                fixedHeight: buttonHeight,
+                align: 'center',
                 padding: {
-                    left: 16 * scaleFactor,
-                    right: 16 * scaleFactor,
-                    top: 8 * scaleFactor,
-                    bottom: 8 * scaleFactor
+                    top: 8,
+                    bottom: 8
                 }
-            }).setOrigin(0.5);
+            };
+            
+            const button = this.ui.createText(buttonX, buttonY, buttonText, buttonStyle).setOrigin(0.5);
             
             // Only add interaction if the level is unlocked
             if (isUnlocked) {
@@ -189,39 +232,49 @@ export class LevelSelect extends Scene {
         
         // Add pagination if we have multiple pages
         if (totalPages > 1) {
-            this.createPaginationControls(totalPages, scaleFactor);
+            this.createPaginationControls(totalPages);
         }
         
         // Add back button below the level buttons
-        this.createBackButton(scaleFactor);
+        this.createBackButton();
     }
     
-    createPaginationControls(totalPages, scaleFactor) {
+    createPaginationControls(totalPages) {
         const { width, height } = this.cameras.main;
+        const safeZone = this.ui.getSafeZone();
         
-        // Create page indicator text
-        const pageText = this.add.text(width / 2, height - 130 * scaleFactor, 
-            `Page ${this.pageIndex + 1} / ${totalPages}`, {
-            fontFamily: 'Arial',
-            fontSize: `${18 * scaleFactor}px`,
-            color: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 3 * scaleFactor,
-            align: 'center'
-        }).setOrigin(0.5);
+        // Create page indicator text with responsive sizing
+        const pageText = this.ui.createText(
+            width / 2, 
+            height - safeZone.bottom - 80, 
+            `Page ${this.pageIndex + 1} / ${totalPages}`, 
+            {
+                fontFamily: 'Arial',
+                fontSize: '18px',
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 3,
+                align: 'center'
+            }
+        ).setOrigin(0.5);
         
         this.buttons.push(pageText);
         
-        // Previous page button
+        // Previous page button - with responsive positioning and sizing
         if (this.pageIndex > 0) {
-            const prevButton = this.add.text(width / 2 - 80 * scaleFactor, height - 130 * scaleFactor, '◀ Prev', {
-                fontFamily: 'Arial',
-                fontSize: `${18 * scaleFactor}px`,
-                color: '#ffffff',
-                stroke: '#000000',
-                strokeThickness: 3 * scaleFactor,
-                align: 'center'
-            }).setOrigin(0.5);
+            const prevButton = this.ui.createText(
+                (width / 2) - 80, 
+                height - safeZone.bottom - 80, 
+                '◀ Prev', 
+                {
+                    fontFamily: 'Arial',
+                    fontSize: '18px',
+                    color: '#ffffff',
+                    stroke: '#000000',
+                    strokeThickness: 3,
+                    align: 'center'
+                }
+            ).setOrigin(0.5);
             
             prevButton.setInteractive({ useHandCursor: true })
                 .on('pointerover', () => prevButton.setStyle({ color: '#f39c12' }))
@@ -234,16 +287,21 @@ export class LevelSelect extends Scene {
             this.buttons.push(prevButton);
         }
         
-        // Next page button
+        // Next page button - with responsive positioning and sizing
         if (this.pageIndex < totalPages - 1) {
-            const nextButton = this.add.text(width / 2 + 80 * scaleFactor, height - 130 * scaleFactor, 'Next ▶', {
-                fontFamily: 'Arial',
-                fontSize: `${18 * scaleFactor}px`,
-                color: '#ffffff',
-                stroke: '#000000',
-                strokeThickness: 3 * scaleFactor,
-                align: 'center'
-            }).setOrigin(0.5);
+            const nextButton = this.ui.createText(
+                (width / 2) + 80, 
+                height - safeZone.bottom - 80, 
+                'Next ▶', 
+                {
+                    fontFamily: 'Arial',
+                    fontSize: '18px',
+                    color: '#ffffff',
+                    stroke: '#000000',
+                    strokeThickness: 3,
+                    align: 'center'
+                }
+            ).setOrigin(0.5);
             
             nextButton.setInteractive({ useHandCursor: true })
                 .on('pointerover', () => nextButton.setStyle({ color: '#f39c12' }))
@@ -257,41 +315,45 @@ export class LevelSelect extends Scene {
         }
     }
     
-    createBackButton(scaleFactor) {
+    createBackButton() {
         const { width, height } = this.cameras.main;
+        const safeZone = this.ui.getSafeZone();
         
-        const backButton = this.add.text(width / 2, height - 80 * scaleFactor, 'Back to Menu', {
-            fontFamily: 'Arial Black',
-            fontSize: `${24 * scaleFactor}px`,
-            color: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 4 * scaleFactor,
-            align: 'center'
-        }).setOrigin(0.5);
+        // Create back button with responsive sizing
+        const backButton = this.ui.createButton(
+            width / 2, 
+            height - safeZone.bottom - 20, 
+            'Back to Menu', 
+            {
+                fontFamily: 'Arial Black',
+                fontSize: '24px',
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 4,
+                backgroundColor: '#4a4a4a'
+            },
+            () => this.scene.start('MainMenu')
+        ).setOrigin(0.5, 1);
         
-        backButton.setInteractive({ useHandCursor: true })
-            .on('pointerover', () => backButton.setStyle({ color: '#f39c12' }))
-            .on('pointerout', () => backButton.setStyle({ color: '#ffffff' }))
-            .on('pointerdown', () => this.scene.start('MainMenu'));
-            
         this.buttons.push(backButton);
         
-        // Add a reset progress button (for testing)
-        const resetButton = this.add.text(width - 20, height - 20, '🔄 Reset Progress', {
-            fontFamily: 'Arial',
-            fontSize: `${16 * scaleFactor}px`,
-            color: '#aaaaaa',
-            stroke: '#000000',
-            strokeThickness: 2 * scaleFactor,
-        }).setOrigin(1, 1);
+        // Add a reset progress button in bottom corner (for testing)
+        const resetButton = this.ui.createText(
+            width - safeZone.right - 20, 
+            height - safeZone.bottom - 20, 
+            '🔄 Reset Progress', 
+            {
+                fontFamily: 'Arial',
+                fontSize: '16px',
+                color: '#aaaaaa',
+                stroke: '#000000',
+                strokeThickness: 2
+            }
+        ).setOrigin(1, 1);
         
         resetButton.setInteractive({ useHandCursor: true })
-            .on('pointerover', () => {
-                resetButton.setStyle({ color: '#f39c12' });
-            })
-            .on('pointerout', () => {
-                resetButton.setStyle({ color: '#aaaaaa' });
-            })
+            .on('pointerover', () => resetButton.setStyle({ color: '#f39c12' }))
+            .on('pointerout', () => resetButton.setStyle({ color: '#aaaaaa' }))
             .on('pointerdown', () => {
                 gameProgress.reset();
                 this.scene.restart();

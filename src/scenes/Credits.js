@@ -1,4 +1,5 @@
 import { Scene } from 'phaser';
+import { ResponsiveUI } from '../utils/ResponsiveUI';
 
 export class Credits extends Scene {
     constructor() {
@@ -6,23 +7,25 @@ export class Credits extends Scene {
     }
     
     create() {
+        // Initialize responsive UI helper
+        this.ui = new ResponsiveUI(this);
+        
         const { width, height } = this.cameras.main;
         const centerX = width / 2;
-        const baseWidth = 800;
-        const scaleFactor = width / baseWidth;
+        const safeZone = this.ui.getSafeZone();
         
         // Set background
         const background = this.add.image(centerX, height/2, 'background');
         background.setDisplaySize(width, height);
         background.setAlpha(0.6); // Dimmer background for better text readability
         
-        // Add title
-        const title = this.add.text(centerX, 60 * scaleFactor, 'Credits', {
+        // Add title - use responsive text
+        this.ui.createText(centerX, safeZone.top + 40, 'Credits', {
             fontFamily: 'Arial Black',
-            fontSize: `${48 * scaleFactor}px`,
+            fontSize: '48px',
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 6 * scaleFactor,
+            strokeThickness: 6,
             align: 'center'
         }).setOrigin(0.5);
         
@@ -55,7 +58,6 @@ export class Credits extends Scene {
                     { name: 'Footsteps', url: 'https://pixabay.com/sound-effects/footstep-1-83098//' },
                     { name: 'Alert Sound', url: 'https://pixabay.com/sound-effects/metal-gear-solid-alarm-42627/' },
                     { name: 'Alarm Sound', url: 'https://pixabay.com/sound-effects/alert-33762/' }
-                    
                 ]
             },
             {
@@ -74,30 +76,32 @@ export class Credits extends Scene {
             }
         ];
         
-        // Create a scrollable container for credits content
+        // Create a scrollable container for credits content with responsive sizing
         const containerWidth = width * 0.8;
-        const containerHeight = height - 180 * scaleFactor;
+        const containerTop = safeZone.top + 120;
+        const containerHeight = height - containerTop - safeZone.bottom - 80;
+        
         const creditsMask = this.add.graphics()
             .fillStyle(0xffffff)
-            .fillRect((width - containerWidth) / 2, 120 * scaleFactor, containerWidth, containerHeight);
+            .fillRect((width - containerWidth) / 2, containerTop, containerWidth, containerHeight);
         
-        const creditsContainer = this.add.container(0, 120 * scaleFactor);
+        const creditsContainer = this.add.container(0, containerTop);
         creditsContainer.setMask(creditsMask.createGeometryMask());
         
         // Track total height for positioning
         let currentY = 0;
-        const sectionSpacing = 30 * scaleFactor;
-        const itemSpacing = 10 * scaleFactor;
+        const sectionSpacing = this.ui.fontSize(30);
+        const itemSpacing = this.ui.fontSize(10);
         
         // Add each credit section
         creditSections.forEach(section => {
-            // Add section header
-            const headerText = this.add.text(centerX, currentY, section.header, {
+            // Add section header with responsive text
+            const headerText = this.ui.createText(centerX, currentY, section.header, {
                 fontFamily: 'Arial Black',
-                fontSize: `${28 * scaleFactor}px`,
+                fontSize: '28px',
                 color: '#ffffff',
                 stroke: '#000000',
-                strokeThickness: 4 * scaleFactor,
+                strokeThickness: 4,
                 align: 'center'
             }).setOrigin(0.5, 0);
             
@@ -106,12 +110,12 @@ export class Credits extends Scene {
             
             // Add each item under this header
             section.items.forEach(item => {
-                const itemText = this.add.text(centerX, currentY, item.name, {
+                const itemText = this.ui.createText(centerX, currentY, item.name, {
                     fontFamily: 'Arial',
-                    fontSize: `${22 * scaleFactor}px`,
+                    fontSize: '22px',
                     color: item.url ? '#66ccff' : '#ffffff',
                     stroke: '#000000',
-                    strokeThickness: 3 * scaleFactor,
+                    strokeThickness: 3,
                     align: 'center'
                 }).setOrigin(0.5, 0);
                 
@@ -137,14 +141,14 @@ export class Credits extends Scene {
         const maxScroll = Math.max(0, contentHeight - containerHeight);
         
         if (maxScroll > 0) {
-            // Add scroll instructions
-            const scrollText = this.add.text(centerX, height - 120 * scaleFactor, 
+            // Add scroll instructions with responsive text
+            this.ui.createText(centerX, height - safeZone.bottom - 45, 
                 'Scroll with mouse wheel or drag to see more', {
                 fontFamily: 'Arial',
-                fontSize: `${14 * scaleFactor}px`,
+                fontSize: '14px',
                 color: '#cccccc',
                 stroke: '#000000',
-                strokeThickness: 2 * scaleFactor,
+                strokeThickness: 2,
                 align: 'center'
             }).setOrigin(0.5);
             
@@ -152,8 +156,8 @@ export class Credits extends Scene {
             this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
                 const newY = Phaser.Math.Clamp(
                     creditsContainer.y - deltaY * 0.5, 
-                    120 * scaleFactor - maxScroll, 
-                    120 * scaleFactor
+                    containerTop - maxScroll, 
+                    containerTop
                 );
                 creditsContainer.y = newY;
             });
@@ -163,7 +167,7 @@ export class Credits extends Scene {
             let lastY = 0;
             
             this.input.on('pointerdown', (pointer) => {
-                if (pointer.y > 120 * scaleFactor && pointer.y < 120 * scaleFactor + containerHeight) {
+                if (pointer.y > containerTop && pointer.y < containerTop + containerHeight) {
                     isDragging = true;
                     lastY = pointer.y;
                 }
@@ -174,8 +178,8 @@ export class Credits extends Scene {
                     const deltaY = pointer.y - lastY;
                     const newY = Phaser.Math.Clamp(
                         creditsContainer.y + deltaY, 
-                        120 * scaleFactor - maxScroll, 
-                        120 * scaleFactor
+                        containerTop - maxScroll, 
+                        containerTop
                     );
                     creditsContainer.y = newY;
                     lastY = pointer.y;
@@ -187,35 +191,22 @@ export class Credits extends Scene {
             });
         }
         
-
-        
-        // Back button
-        const backButton = this.add.text(centerX, height - 30 * scaleFactor, 'Back to Menu', {
-            fontFamily: 'Arial Black',
-            fontSize: `${24 * scaleFactor}px`,
-            color: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 4 * scaleFactor,
-            backgroundColor: '#4a4a4a',
-            padding: {
-                left: 15 * scaleFactor,
-                right: 15 * scaleFactor,
-                top: 8 * scaleFactor,
-                bottom: 8 * scaleFactor
-            }
-        }).setOrigin(0.5);
-        
-        backButton.setInteractive({ useHandCursor: true })
-            .on('pointerover', () => {
-                backButton.setStyle({ fill: '#f39c12' });
-                backButton.setScale(1.05);
-            })
-            .on('pointerout', () => {
-                backButton.setStyle({ fill: '#ffffff' });
-                backButton.setScale(1);
-            })
-            .on('pointerdown', () => {
+        // Back button with responsive sizing and positioning
+        this.ui.createButton(
+            centerX, 
+            height - safeZone.bottom - 20, 
+            'Back to Menu', 
+            {
+                fontFamily: 'Arial Black',
+                fontSize: '24px',
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 4,
+                backgroundColor: '#4a4a4a'
+            },
+            () => {
                 this.scene.start('MainMenu');
-            });
+            }
+        ).setOrigin(0.5, 1);
     }
 }
