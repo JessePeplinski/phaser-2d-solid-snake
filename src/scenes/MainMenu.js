@@ -60,33 +60,33 @@ export class MainMenu extends Scene {
             }
         });
 
-        // Create title text with responsive sizing
+        // Create title text with responsive sizing (reduced size)
         this.ui.createText(centerX, centerY - 150, 'Solid Snek', {
             fontFamily: 'Arial Black',
-            fontSize: '56px',
+            fontSize: '48px', // Decreased from 56px
             color: '#ffffff',
             stroke: '#000000',
             strokeThickness: 8,
             align: 'center'
         }).setOrigin(0.5);
 
-        // Create subtitle with responsive sizing
+        // Create subtitle with responsive sizing (reduced size)
         this.ui.createText(centerX, centerY - 100, 'A 2D browser-based dungeon crawler inspired by Metal Gear Solid', {
             fontFamily: 'Arial Black',
-            fontSize: '18px',
+            fontSize: '16px', // Decreased from 18px
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 8,
+            strokeThickness: 6, // Reduced from 8
             align: 'center'
         }).setOrigin(0.5);
 
-        // Credit text - use responsive text function
+        // Credit text - use responsive text function with smaller font
         const creditStyle = {
             fontFamily: 'Arial Black',
-            fontSize: '24px',
+            fontSize: '20px', // Decreased from 24px
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 8,
+            strokeThickness: 6, // Reduced from 8
             align: 'center'
         };
 
@@ -127,88 +127,71 @@ export class MainMenu extends Scene {
         
         createCreditsText();
 
+        // Define consistent button style for smaller buttons
+        const smallButtonStyle = {
+            fontFamily: 'Arial Black',
+            fontSize: '22px', // Standardized size (decreased from 24px)
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 4,
+            align: 'center',
+            backgroundColor: '#4a4a4a',
+            fixedWidth: 240, // Same width as main button
+            padding: {
+                left: 16,
+                right: 16,
+                top: 8,
+                bottom: 8
+            }
+        };
+
+        // Calculate equal button spacing
+        const buttonHeight = 50; // Approximate height of button
+        const buttonPadding = 25; // Space between buttons
+        const firstButtonY = centerY + 20;
+        
         // Create Start Game button using our responsive button creator
         const startButton = this.ui.createButton(
             centerX, 
-            centerY + 20, 
+            firstButtonY, 
             'Start Game', 
-            {
-                fontFamily: 'Arial Black',
-                fontSize: '38px',
-                color: '#ffffff',
-                stroke: '#000000',
-                strokeThickness: 8,
-                align: 'center',
-                backgroundColor: '#4a4a4a'
-            },
+            smallButtonStyle,
             () => {
                 this.music.stop();
                 this.scene.start('LevelSelect');
             }
-        );
+        ).setOrigin(0.5);
         
-        // Calculate button positions with responsive spacing
-        // Adapt spacing based on orientation
-        const buttonSpacing = this.ui.isMobile ? 
-            (this.ui.isLandscape ? 20 : 15) : // Mobile (compact in portrait)
-            20;                               // Desktop
-            
-        const firstButtonY = centerY + (this.ui.isLandscape ? 120 : 100);
-        
-        // Use the responsive button creator for all buttons
+        // Create remaining buttons with equal spacing
         this.ui.createButton(
             centerX, 
-            firstButtonY, 
+            firstButtonY + buttonHeight + buttonPadding, 
             'Feedback', 
-            {
-                fontFamily: 'Arial Black',
-                fontSize: '24px',
-                color: '#ffffff',
-                stroke: '#000000',
-                strokeThickness: 4,
-                align: 'center',
-                backgroundColor: '#4a4a4a'
-            },
+            smallButtonStyle,
             () => {
                 window.open('https://solidsnekgame.featurebase.app/', '_blank');
             }
-        );
+        ).setOrigin(0.5);
         
         this.ui.createButton(
             centerX, 
-            firstButtonY + buttonSpacing + 40, 
+            firstButtonY + (buttonHeight + buttonPadding) * 2, 
             'Roadmap', 
-            {
-                fontFamily: 'Arial Black',
-                fontSize: '24px', 
-                color: '#ffffff',
-                stroke: '#000000',
-                strokeThickness: 4,
-                align: 'center',
-                backgroundColor: '#4a4a4a'
-            },
+            smallButtonStyle,
             () => {
                 window.open('https://solidsnekgame.featurebase.app/roadmap', '_blank');
             }
-        );
+        ).setOrigin(0.5);
         
         this.ui.createButton(
             centerX, 
-            firstButtonY + (buttonSpacing + 40) * 2, 
+            firstButtonY + (buttonHeight + buttonPadding) * 3, 
             'Credits', 
-            {
-                fontFamily: 'Arial Black',
-                fontSize: '24px',
-                color: '#ffffff',
-                stroke: '#000000',
-                strokeThickness: 4,
-                align: 'center',
-                backgroundColor: '#4a4a4a'
-            },
+            smallButtonStyle,
             () => {
                 this.scene.start('Credits');
             }
-        );
+        ).setOrigin(0.5);
 
         // Create a note at the bottom with responsive sizing and positioning
         // Position at bottom with safe area margins
@@ -220,7 +203,7 @@ export class MainMenu extends Scene {
             'Solid Snek is a fan project inspired by Metal Gear Solid.\nNo affiliation with Konami or Hideo Kojima.', 
             {
                 fontFamily: 'Arial',
-                fontSize: '14px',
+                fontSize: '12px', // Decreased from 14px
                 color: '#cccccc',
                 stroke: '#000000',
                 strokeThickness: 2,
