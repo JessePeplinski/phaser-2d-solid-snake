@@ -315,6 +315,13 @@ export class Game extends Scene {
         
         // Add minimap property
         this.minimap = null;
+
+        // Add WASD keys
+        this.keyW = null;
+        this.keyA = null;
+        this.keyS = null;
+        this.keyD = null;
+
     }
 
     init(data) {
@@ -411,6 +418,12 @@ export class Game extends Scene {
 
         // Set up keyboard input
         this.setupKeyboardInput();
+        
+        // Set up WASD keys
+        this.keyW = this.input.keyboard.addKey('W');
+        this.keyA = this.input.keyboard.addKey('A');
+        this.keyS = this.input.keyboard.addKey('S');
+        this.keyD = this.input.keyboard.addKey('D');
         
         // Set up cursor keys
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -599,8 +612,8 @@ export class Game extends Scene {
                 this.resetDarkness();
             }
         };
-        this.input.keyboard.on('keydown-D', toggleDarknessListener);
-        this.keyListeners.push({ event: 'keydown-D', handler: toggleDarknessListener });
+        this.input.keyboard.on('keydown-X', toggleDarknessListener);
+        this.keyListeners.push({ event: 'keydown-X', handler: toggleDarknessListener });
 
         // Reset zoom
         const resetZoomListener = () => {
@@ -805,10 +818,10 @@ export class Game extends Scene {
     }
 
     getHelpMessage() {
-        return `Use the arrow keys on desktop or virtual joystick on mobile to move.
+        return `Use the arrow keys or WASD on desktop or virtual joystick on mobile to move.
 Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
 Press "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}
-Press "D" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
+Press "X" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
 Press "Z" to reset zoom
 Enemies: ${this.enemies.length}
 AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!`;
@@ -847,16 +860,21 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
         let velocityX = 0;
         let velocityY = 0;
 
-        // Keyboard input
-        if (this.cursors && this.cursors.left && this.cursors.left.isDown) {
+        // Keyboard input - Check arrow keys and WASD
+        if ((this.cursors && this.cursors.left && this.cursors.left.isDown) || 
+            (this.keyA && this.keyA.isDown)) {
             velocityX = -100;
-        } else if (this.cursors && this.cursors.right && this.cursors.right.isDown) {
+        } else if ((this.cursors && this.cursors.right && this.cursors.right.isDown) || 
+                  (this.keyD && this.keyD.isDown)) {
             velocityX = 100;
         }
 
-        if (this.cursors && this.cursors.up && this.cursors.up.isDown) {
+        // Check vertical movement (up/down or W/S)
+        if ((this.cursors && this.cursors.up && this.cursors.up.isDown) || 
+            (this.keyW && this.keyW.isDown)) {
             velocityY = -100;
-        } else if (this.cursors && this.cursors.down && this.cursors.down.isDown) {
+        } else if ((this.cursors && this.cursors.down && this.cursors.down.isDown) || 
+                  (this.keyS && this.keyS.isDown)) {
             velocityY = 100;
         }
 
