@@ -144,3 +144,8 @@ Please make two changes to the AI:
 The code I have for the AI searching the "last known" location is not working. I can points plot on the map, but then the AI does not attempt to visit the points. Instead, they remain in one location, and spin in a circle. 
 
 Can you fix or simplify the search for the last known location?
+
+# Question
+My game uses a scaling affect on mobile / different device sizes. However, I'm finding that during my testing, this isn't working very well on mobile because the text shrinks down significantly and my game suffers a much worse quality.
+
+What do you suggest as the best practice to ensure this game will look OK on all devices?
