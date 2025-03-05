@@ -845,29 +845,22 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
 
         let velocityX = 0;
         let velocityY = 0;
-        
+
         // Keyboard input
         if (this.cursors && this.cursors.left && this.cursors.left.isDown) {
             velocityX = -100;
         } else if (this.cursors && this.cursors.right && this.cursors.right.isDown) {
             velocityX = 100;
         }
-        
+
         if (this.cursors && this.cursors.up && this.cursors.up.isDown) {
             velocityY = -100;
         } else if (this.cursors && this.cursors.down && this.cursors.down.isDown) {
             velocityY = 100;
         }
 
-        // Virtual joystick input - improved with analog values
-        if (this.joystick && this.joystick.force > 0) {
-            // Use the actual joystick angle and force for more precise analog control
-            const force = Math.min(1, this.joystick.force / 50); // Normalize force
-            velocityX = Math.cos(this.joystick.angle) * force * 100;
-            velocityY = Math.sin(this.joystick.angle) * force * 100;
-        } 
-        // Fallback to digital cursor keys if using the older joystick implementation
-        else if (this.joystickCursor) {
+        // Virtual joystick input
+        if (this.joystickCursor) {
             if (this.joystickCursor.left.isDown) {
                 velocityX = -100;
             } else if (this.joystickCursor.right.isDown) {
