@@ -821,7 +821,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 // Just arrived - start waiting
                 this.isWaiting = true;
                 this.waitTimer = 0;
-                this.waitDuration = this.respondingToBackup ? 400 : 800;
+                this.waitDuration = this.respondingToBackup ? 800 : 1500;
                 
                 // Stop movement
                 this.body.setVelocity(0, 0);
@@ -832,8 +832,8 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 // Already waiting - update rotation during wait
                 this.waitTimer += this.scene.game.loop.delta;
                 
-                // Look around while waiting
-                const rotationSpeed = this.respondingToBackup ? 3 : 1.5;
+                // Look around while waiting (slower, more natural rotation)
+                const rotationSpeed = this.respondingToBackup ? 0.8 : 0.4;
                 this.facingAngle = this.rotationStart + (this.waitTimer / this.waitDuration) * Math.PI * rotationSpeed;
                 
                 // Stop movement while looking
