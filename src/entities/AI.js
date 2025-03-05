@@ -135,6 +135,10 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         // Dialogue timing
         this.dialogueDisplayTime = 0;
         this.dialogueDisplayDuration = 3000; // 3 seconds
+
+        this.previousAlertState = null; // Track previous alert state
+        this.justReturnedToPatrol = false; // Flag to track patrol return for dialogue
+        this.showedReturningDialogue = false; // Track if we already showed returning dialogue
         
         // Dialogue phrases
         this.backupRequestPhrases = [
@@ -394,6 +398,9 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         // Process alert state system
         this.updateAlertState(time, delta, player);
         
+        // Make sure to update the alert indicator every frame
+        this.updateAlertIndicator();
+        
         // Update memory system
         this.updateMemory(time, delta, player);
         
@@ -568,6 +575,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         if (this.alertState === newState) return;
         
         const oldState = this.alertState;
+        this.previousAlertState = oldState; // Track previous state
         this.alertState = newState;
         this.timeInState = 0;
         
@@ -605,15 +613,21 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             this.respondingToBackup = false;
             this.speed = 70; // Reset to default speed
         }
-
+        
+        // Reset the returning dialogue flag when entering any alert state
+        if (newState !== this.alertStates.RETURNING && 
+            newState !== this.alertStates.PATROL) {
+            this.showedReturningDialogue = false;
+        }
+    
         // Handle state entry actions
         switch (newState) {
             case this.alertStates.PATROL:
                 // Clear all investigation points and alert indicators when returning to patrol
                 this.playerMemory.investigationPoints = [];
                 this.alertLevel = 0; // Reset alert level
-                // Update the alert indicator immediately
-                this.updateAlertIndicator();
+                // Force alert indicator to be hidden
+                this.alertIndicator.setVisible(false);
                 break;
                 
             case this.alertStates.SUSPICIOUS:
@@ -637,6 +651,19 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                 this.alarmSound.stop();
                 // Clear investigation points
                 this.playerMemory.investigationPoints = [];
+                
+                // Show "Guess it was nothing" as soon as we start returning
+                // But only if we're coming from a high alert state
+                if ((oldState === this.alertStates.ALERT || 
+                     oldState === this.alertStates.SEARCHING || 
+                     oldState === this.alertStates.SUSPICIOUS) && 
+                    !this.showedReturningDialogue) {
+                    
+                    // Show returning dialogue
+                    this.displayDialogue("Guess it was nothing...");
+                    console.log("Displaying 'Guess it was nothing...' dialogue (when returning)");
+                    this.showedReturningDialogue = true;
+                }
                 break;
         }
     }
@@ -936,8 +963,11 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         let indicatorText = '';
         let color = '#ffffff';
         
-        // Only show indicator for non-patrol states or when alert level is significant
-        if (this.alertState !== this.alertStates.PATROL && this.alertLevel > 10) {
+        // Only show indicator for non-patrol and non-returning states or when alert level is significant
+        if ((this.alertState !== this.alertStates.PATROL && 
+             this.alertState !== this.alertStates.RETURNING) && 
+            this.alertLevel > 10) {
+            
             if (this.alertLevel > 75) {
                 indicatorText = '!';
                 color = '#ff0000';
@@ -950,11 +980,13 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             }
         }
         
-        // Only show indicator if there's text to display
-        if (indicatorText) {
+        // Handle indicator visibility
+        if (indicatorText && indicatorText.length > 0) {
             this.alertIndicator.setText(indicatorText);
+            this.alertIndicator.setStyle({ color: color });
             this.alertIndicator.setVisible(true);
         } else {
+            // Force indicator to be hidden when no text
             this.alertIndicator.setVisible(false);
         }
     }
