@@ -563,12 +563,14 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             // Lost sight of player while in alert mode
             // Calculate time since last saw player
             const timeSinceLastSeen = time - this.playerMemory.lastSeenTime;
-            
+
             // If it's been a while since we saw the player, transition to searching
             if (timeSinceLastSeen > 1000) {
                 this.setAlertState(this.alertStates.SEARCHING);
-                // Generate search points around last known position
-                this.generateSearchPoints(this.playerMemory.lastKnownPosition);
+                // Generate fresh search points around last known position
+                if (this.playerMemory.lastKnownPosition) {
+                    this.generateSearchPoints(this.playerMemory.lastKnownPosition);
+                }
             }
         }
         
@@ -717,248 +719,185 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
     generateSearchPoints(position) {
         if (!position) return;
         
-        const points = [];
-        // Expand search radius when responding to backup
-        const radius = this.respondingToBackup ? 
-            this.playerMemory.investigationRadius * 1.5 : 
-            this.playerMemory.investigationRadius;
+        // Clear existing points
+        this.playerMemory.investigationPoints = [];
+        this.playerMemory.currentInvestigationPoint = 0;
         
-        // Increase number of search points when responding to backup
-        const numPoints = this.respondingToBackup ? 7 : 5;
+        // Start with the original position as the first search point
+        this.playerMemory.investigationPoints.push(
+            new Phaser.Math.Vector2(position.x, position.y)
+        );
         
-        // Add the center point (last known position)
-        points.push(new Phaser.Math.Vector2(position.x, position.y));
+        // Define search parameters
+        const searchRadius = this.respondingToBackup ? 96 : 64;
+        const numPoints = this.respondingToBackup ? 6 : 4;
         
-        // Determine this AI's search sector (if responding to backup)
-        // This helps distribute enemies around the search area
-        let startAngle = 0;
-        let endAngle = Math.PI * 2;
-        
-        if (this.respondingToBackup && this.scene.enemies.length > 1) {
-            // Find this AI's index among responding AIs
-            const respondingEnemies = this.scene.enemies.filter(e => 
-                e.respondingToBackup || e.alertState === e.alertStates.ALERT);
-            
-            const myIndex = respondingEnemies.indexOf(this);
-            
-            if (myIndex !== -1 && respondingEnemies.length > 1) {
-                // Divide the circle into sectors based on the number of responding enemies
-                const sectorSize = (Math.PI * 2) / respondingEnemies.length;
-                startAngle = myIndex * sectorSize;
-                endAngle = startAngle + sectorSize;
-                
-                // Add a bit of overlap between sectors
-                startAngle -= sectorSize * 0.1;
-                endAngle += sectorSize * 0.1;
-            }
-        }
-        
-        // Generate points in the assigned sector or full circle
+        // Generate points in a circle around the last known position
         for (let i = 0; i < numPoints; i++) {
-            // Calculate angle within the assigned sector
-            const angleFraction = i / (numPoints - 1);
-            const angle = startAngle + angleFraction * (endAngle - startAngle);
+            // Calculate angle for this point (evenly distributed)
+            const angle = (i / numPoints) * Math.PI * 2;
             
-            // Vary the distance for a more natural pattern
-            let distance;
-            if (this.respondingToBackup) {
-                // Use more structured distances when coordinating
-                distance = radius * (0.4 + (angleFraction * 0.6));
-            } else {
-                // More random distances for standard searching
-                distance = Phaser.Math.Between(radius/2, radius);
-            }
+            // Calculate position with some randomness in distance
+            const distance = Phaser.Math.Between(searchRadius * 0.5, searchRadius);
+            let x = position.x + Math.cos(angle) * distance;
+            let y = position.y + Math.sin(angle) * distance;
             
-            const x = position.x + Math.cos(angle) * distance;
-            const y = position.y + Math.sin(angle) * distance;
+            // Ensure the point is within the map
+            x = Phaser.Math.Clamp(x, 16, this.scene.map.widthInPixels - 16);
+            y = Phaser.Math.Clamp(y, 16, this.scene.map.heightInPixels - 16);
             
-            // Make sure the point is within the map bounds
-            const newPoint = new Phaser.Math.Vector2(
-                Phaser.Math.Clamp(x, 16, this.scene.map.widthInPixels - 16),
-                Phaser.Math.Clamp(y, 16, this.scene.map.heightInPixels - 16)
-            );
-            
-            // Check if the point is accessible (not in a wall)
-            const tile = this.scene.layer.getTileAtWorldXY(newPoint.x, newPoint.y);
+            // Check if the point is in a walkable area (not in a wall)
+            const tile = this.scene.layer.getTileAtWorldXY(x, y);
             if (!tile || !tile.collides) {
-                points.push(newPoint);
+                this.playerMemory.investigationPoints.push(
+                    new Phaser.Math.Vector2(x, y)
+                );
             }
         }
         
-        // If we're responding to backup, add some extra points along possible escape routes
-        if (this.respondingToBackup) {
-            // Add points at cardinal directions to cover escape routes
-            const escapeDirections = [0, Math.PI/2, Math.PI, Math.PI*3/2];
-            const escapeDistances = [radius * 1.2, radius * 1.5];
-            
-            for (const angle of escapeDirections) {
-                for (const distance of escapeDistances) {
-                    const x = position.x + Math.cos(angle) * distance;
-                    const y = position.y + Math.sin(angle) * distance;
-                    
-                    // Make sure the point is within the map bounds
-                    const newPoint = new Phaser.Math.Vector2(
-                        Phaser.Math.Clamp(x, 16, this.scene.map.widthInPixels - 16),
-                        Phaser.Math.Clamp(y, 16, this.scene.map.heightInPixels - 16)
-                    );
-                    
-                    // Check if the point is accessible (not in a wall)
-                    const tile = this.scene.layer.getTileAtWorldXY(newPoint.x, newPoint.y);
-                    if (!tile || !tile.collides) {
-                        points.push(newPoint);
-                    }
-                }
-            }
-        }
-        
-        // If we couldn't generate any valid points (unlikely), use a fallback
-        if (points.length <= 1) {
-            // Add some points in cardinal directions at smaller distances
-            const fallbackDistances = [32, 48, 64];
+        // If we didn't generate any points, add some fallback points
+        if (this.playerMemory.investigationPoints.length <= 1) {
+            // Try cardinal directions at smaller distances
+            const fallbackDistances = [32, 48];
             const fallbackAngles = [0, Math.PI/2, Math.PI, Math.PI*3/2];
             
             for (const distance of fallbackDistances) {
                 for (const angle of fallbackAngles) {
-                    const x = position.x + Math.cos(angle) * distance;
-                    const y = position.y + Math.sin(angle) * distance;
-                    
-                    // Make sure the point is within bounds
-                    const point = new Phaser.Math.Vector2(
-                        Phaser.Math.Clamp(x, 16, this.scene.map.widthInPixels - 16),
-                        Phaser.Math.Clamp(y, 16, this.scene.map.heightInPixels - 16)
+                    const x = Phaser.Math.Clamp(
+                        position.x + Math.cos(angle) * distance,
+                        16, this.scene.map.widthInPixels - 16
+                    );
+                    const y = Phaser.Math.Clamp(
+                        position.y + Math.sin(angle) * distance,
+                        16, this.scene.map.heightInPixels - 16
                     );
                     
-                    // Only add if it's not in a wall
-                    const tile = this.scene.layer.getTileAtWorldXY(point.x, point.y);
+                    const tile = this.scene.layer.getTileAtWorldXY(x, y);
                     if (!tile || !tile.collides) {
-                        points.push(point);
+                        this.playerMemory.investigationPoints.push(
+                            new Phaser.Math.Vector2(x, y)
+                        );
                     }
                 }
             }
         }
         
-        // Ensure there's at least one point besides the origin
-        if (points.length <= 1) {
-            console.log("Warning: Could not generate valid search points");
-        }
-        
-        // Randomize the order of points except for the first one (last known position)
-        if (points.length > 2) {
-            const firstPoint = points.shift(); // Remove first point
-            Phaser.Utils.Array.Shuffle(points); // Shuffle remaining points
-            points.unshift(firstPoint); // Put first point back
-        }
-        
-        console.log(`Generated ${points.length} search points`);
-        
-        // Set the investigation points
-        this.playerMemory.investigationPoints = points;
-        this.playerMemory.currentInvestigationPoint = 0;
+        console.log(`Generated ${this.playerMemory.investigationPoints.length} search points`);
     }
     
     // Search the area around the last known player position
     searchArea() {
-        if (this.playerMemory.investigationPoints.length === 0) return;
+        // Exit if no points to investigate
+        if (this.playerMemory.investigationPoints.length === 0) {
+            // Transition out of searching state if no points
+            this.setAlertState(this.alertStates.RETURNING);
+            return;
+        }
         
         // Get the current investigation point
         const currentPoint = this.playerMemory.investigationPoints[this.playerMemory.currentInvestigationPoint];
         
-        // Move to the current investigation point
+        // Calculate distance to the current point
         const distToPoint = Phaser.Math.Distance.Between(
             this.x, this.y,
             currentPoint.x, currentPoint.y
         );
         
+        // Debug visualization - show current target point
+        if (this.scene.showDebug) {
+            this.graphics.lineStyle(3, 0xff00ff, 1);
+            this.graphics.strokeCircle(currentPoint.x, currentPoint.y, 16);
+            this.graphics.lineStyle(2, 0xff00ff, 0.8);
+            this.graphics.beginPath();
+            this.graphics.moveTo(this.x, this.y);
+            this.graphics.lineTo(currentPoint.x, currentPoint.y);
+            this.graphics.strokePath();
+        }
+        
+        // Behavior when we've reached a point
         if (distToPoint < 16) {
-            // Reached the point, wait a moment and look around
+            // Two states: initial arrival (start waiting) or finished waiting (move to next point)
             if (!this.isWaiting) {
+                // Just arrived - start waiting
                 this.isWaiting = true;
                 this.waitTimer = 0;
+                this.waitDuration = this.respondingToBackup ? 400 : 800;
                 
-                // Modify wait duration based on whether responding to backup
-                if (this.respondingToBackup) {
-                    // Shorter wait times when responding to backup for faster searching
-                    this.waitDuration = 500;
-                } else {
-                    this.waitDuration = 1000;
-                }
-                
-                this.rotationStart = this.facingAngle;
-                this.rotationTarget = this.facingAngle + Math.PI * 2;
-                this.rotationProgress = 0;
-                
-                // Stop movement completely when we reach the point
+                // Stop movement
                 this.body.setVelocity(0, 0);
-            } else if (this.waitTimer >= this.waitDuration) {
-                // Move to the next investigation point
-                this.playerMemory.currentInvestigationPoint++;
                 
-                // If we've checked all points, move to next steps
-                if (this.playerMemory.currentInvestigationPoint >= this.playerMemory.investigationPoints.length) {
-                    // If responding to backup and haven't found player, generate new search points in a wider area
-                    if (this.respondingToBackup) {
-                        // Get the original last known position
-                        const originalPos = this.playerMemory.lastKnownPosition;
-                        
-                        if (originalPos) {
-                            // Create a new position offset randomly to expand search area
-                            const searchOffset = Phaser.Math.Between(50, 150);
-                            const searchAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-                            
-                            const newSearchCenter = new Phaser.Math.Vector2(
-                                originalPos.x + Math.cos(searchAngle) * searchOffset,
-                                originalPos.y + Math.sin(searchAngle) * searchOffset
-                            );
-                            
-                            // Generate new search points around this expanded area
-                            this.generateSearchPoints(newSearchCenter);
-                            return;
+                // Set up rotation to look around
+                this.rotationStart = this.facingAngle;
+            } else {
+                // Already waiting - update rotation during wait
+                this.waitTimer += this.scene.game.loop.delta;
+                
+                // Look around while waiting
+                const rotationSpeed = this.respondingToBackup ? 3 : 1.5;
+                this.facingAngle = this.rotationStart + (this.waitTimer / this.waitDuration) * Math.PI * rotationSpeed;
+                
+                // Stop movement while looking
+                this.body.setVelocity(0, 0);
+                
+                // Move to next point when wait time is up
+                if (this.waitTimer >= this.waitDuration) {
+                    // Finished with this point - move to next
+                    this.playerMemory.currentInvestigationPoint++;
+                    this.isWaiting = false;
+                    
+                    // If we've checked all points
+                    if (this.playerMemory.currentInvestigationPoint >= this.playerMemory.investigationPoints.length) {
+                        if (this.respondingToBackup) {
+                            // Generate new search points in a different area
+                            const originalPos = this.playerMemory.lastKnownPosition;
+                            if (originalPos) {
+                                const searchOffset = Phaser.Math.Between(60, 180);
+                                const searchAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                                
+                                const newSearchCenter = new Phaser.Math.Vector2(
+                                    originalPos.x + Math.cos(searchAngle) * searchOffset,
+                                    originalPos.y + Math.sin(searchAngle) * searchOffset
+                                );
+                                
+                                this.generateSearchPoints(newSearchCenter);
+                            } else {
+                                // No position to expand search from
+                                this.playerMemory.investigationPoints = [];
+                                this.setAlertState(this.alertStates.RETURNING);
+                            }
+                        } else {
+                            // Regular search complete - return to patrol
+                            this.playerMemory.investigationPoints = [];
+                            this.setAlertState(this.alertStates.RETURNING);
                         }
                     }
-                    
-                    // If not responding to backup or no valid position to expand from
-                    this.playerMemory.investigationPoints = [];
-                    this.setAlertState(this.alertStates.RETURNING);
                 }
-                
-                this.isWaiting = false;
-            } else {
-                // While waiting, update rotation to look around
-                this.rotationProgress = this.waitTimer / this.waitDuration;
-                
-                // Faster rotation when responding to backup
-                if (this.respondingToBackup) {
-                    this.facingAngle = this.rotationStart + (this.rotationProgress * Math.PI * 4);
-                } else {
-                    this.facingAngle = this.rotationStart + (this.rotationProgress * Math.PI * 2);
-                }
-                
-                // Ensure we're not moving while looking around
-                this.body.setVelocity(0, 0);
             }
         } else {
-            // Not at the point yet - move directly towards the investigation point
-            const direction = new Phaser.Math.Vector2(
-                currentPoint.x - this.x,
-                currentPoint.y - this.y
-            );
+            // Not at the point yet - move towards it
+            this.isWaiting = false; // Reset waiting state if we somehow moved away
             
-            if (direction.length() > 0) {
-                direction.normalize();
+            // Calculate direction to target
+            const directionX = currentPoint.x - this.x;
+            const directionY = currentPoint.y - this.y;
+            const length = Math.sqrt(directionX * directionX + directionY * directionY);
+            
+            if (length > 0) {
+                // Normalize direction
+                const normalizedX = directionX / length;
+                const normalizedY = directionY / length;
                 
-                // Use a direct velocity assignment with speed that depends on state
-                let searchSpeed = this.speed * 0.9; // Default search speed
+                // Set movement speed based on state
+                const searchSpeed = this.respondingToBackup ? this.speed * 1.1 : this.speed * 0.9;
                 
-                // Move faster when responding to backup
-                if (this.respondingToBackup) {
-                    searchSpeed = this.speed * 1.1;
-                }
+                // Apply velocity directly
+                this.body.setVelocity(
+                    normalizedX * searchSpeed,
+                    normalizedY * searchSpeed
+                );
                 
-                this.body.velocity.x = direction.x * searchSpeed;
-                this.body.velocity.y = direction.y * searchSpeed;
-                
-                // Update facing angle more aggressively for more responsive turning
-                this.facingAngle = direction.angle();
+                // Update facing angle to match movement direction
+                this.facingAngle = Math.atan2(normalizedY, normalizedX);
             }
         }
     }
