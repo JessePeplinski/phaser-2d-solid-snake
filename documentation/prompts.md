@@ -132,3 +132,9 @@ The enemies should then attempt to converge on the player. They should say one o
 “Time to wrap this up!”
 
 Please make this update. 
+
+
+# AI Display
+Please make two changes to the AI:
+1. The ! or the !? displays above the enemies head when they enter the low, medium or high alert. When there is no alert state, please remove the ! and the !? from the enemy.   
+2. When returning back to the normal state, show the message above the enemy heads "Guess it was nothing..."
