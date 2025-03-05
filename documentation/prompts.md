@@ -149,3 +149,10 @@ Can you fix or simplify the search for the last known location?
 My game uses a scaling affect on mobile / different device sizes. However, I'm finding that during my testing, this isn't working very well on mobile because the text shrinks down significantly and my game suffers a much worse quality.
 
 What do you suggest as the best practice to ensure this game will look OK on all devices?
+
+# Question
+I have implemented the ResponsiveUI.js code and it's working well and sizing things better on different screen devices. 
+
+However, on mobile, the virtual joystick is too far over to the right on both potrait and landscape layouts. 
+
+Can you fix this?

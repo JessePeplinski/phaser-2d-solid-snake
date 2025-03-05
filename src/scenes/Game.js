@@ -662,25 +662,26 @@ export class Game extends Scene {
     
     // Update virtual joystick creation to be orientation-aware
     createVirtualJoystick() {
-        const margin = 20;
+        // Use actual camera dimensions instead of game config
+        const { width, height } = this.cameras.main;
+        const safeZone = this.ui.getSafeZone();
+        
+        // Adjust radius based on device and orientation
         const radius = this.ui.isMobile ? 
             (this.ui.isLandscape ? 60 : 50) : // Larger on mobile landscape, smaller on portrait
             50;
             
-        const gameWidth = Number(this.sys.game.config.width);
-        const gameHeight = Number(this.sys.game.config.height);
-        
         // Position differently based on orientation
         let x, y;
         
         if (this.ui.isLandscape) {
-            // Bottom right corner in landscape
-            x = gameWidth - margin - radius;
-            y = gameHeight - margin - radius;
+            // Position in right side but not too close to edge in landscape
+            x = width * 0.85;  // 85% across instead of at the edge
+            y = height - safeZone.bottom - radius - 30;
         } else {
-            // Bottom center in portrait (better for thumb access)
-            x = gameWidth / 2;
-            y = gameHeight - margin - radius;
+            // Position in right side but not too close to edge in portrait
+            x = width * 0.82;  // 82% across in portrait (slightly more centered)
+            y = height - safeZone.bottom - radius - 30;
         }
         
         // Create a new joystick
