@@ -164,3 +164,8 @@ Can you update my MainMenu.js file as follows:
 3. Space all buttons out equally 
 
 # Mobile UI Height Options
+I've recently implemented a new way to make this game responsive. However, playing on mobile, I have two problems:
+1. The UI is very zoomed out and it's hard to actually see what is going on in the game. 
+2. I'm not able to take advantage of any of the vertical screen space I have. 
+
+Is there a good solution for these issues I'm having? 
