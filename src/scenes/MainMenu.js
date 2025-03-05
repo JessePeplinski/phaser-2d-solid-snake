@@ -1,4 +1,5 @@
 import { Scene } from 'phaser';
+import { ResponsiveUI } from '../utils/ResponsiveUI';
 
 export class MainMenu extends Scene {
     constructor() {
@@ -7,25 +8,27 @@ export class MainMenu extends Scene {
     }
 
     create() {
+        // Initialize our responsive UI helper
+        this.ui = new ResponsiveUI(this);
+        
         // Set up the background music but don't play it yet
         this.music = this.sound.add('mgs-intro-music', {
             volume: 0.5,
             loop: true
         });
 
-        // Initially mute the sound so the icon correctly reflects the muted state.
+        // Initially mute the sound
         this.sound.mute = true;
 
         const { width, height } = this.cameras.main;
         const centerX = width / 2;
         const centerY = height / 2;
 
-        const baseWidth = 800;
-        const scaleFactor = width / baseWidth;
-
+        // Create background that fits the screen
         const background = this.add.image(centerX, centerY, 'background');
         background.setDisplaySize(width, height);
 
+        // Apply scale animations
         this.tweens.add({
             targets: background,
             scaleX: background.scaleX * 1.02,
@@ -36,6 +39,7 @@ export class MainMenu extends Scene {
             repeat: -1
         });
 
+        // Background glitch effect
         this.time.addEvent({
             delay: 2500,
             loop: true,
@@ -56,184 +60,190 @@ export class MainMenu extends Scene {
             }
         });
 
-        this.add.text(centerX, centerY - 150 * scaleFactor, 'Solid Snek', {
+        // Create title text with responsive sizing
+        this.ui.createText(centerX, centerY - 150, 'Solid Snek', {
             fontFamily: 'Arial Black',
-            fontSize: `${56 * scaleFactor}px`,
+            fontSize: '56px',
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 8 * scaleFactor,
+            strokeThickness: 8,
             align: 'center'
         }).setOrigin(0.5);
 
-        this.add.text(centerX, centerY - 100 * scaleFactor, 'A 2D browser-based dungeon crawler inspired by Metal Gear Solid', {
+        // Create subtitle with responsive sizing
+        this.ui.createText(centerX, centerY - 100, 'A 2D browser-based dungeon crawler inspired by Metal Gear Solid', {
             fontFamily: 'Arial Black',
-            fontSize: `${18 * scaleFactor}px`,
+            fontSize: '18px',
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 8 * scaleFactor,
+            strokeThickness: 8,
             align: 'center'
         }).setOrigin(0.5);
 
+        // Credit text - use responsive text function
         const creditStyle = {
             fontFamily: 'Arial Black',
-            fontSize: `${24 * scaleFactor}px`,
+            fontSize: '24px',
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 8 * scaleFactor,
+            strokeThickness: 8,
             align: 'center'
         };
 
-        const textCreatedByYPosition = -80 * scaleFactor;
-        const textCreatedBy = this.add.text(0, textCreatedByYPosition, 'Created by ', creditStyle);
-        const textPeptech = this.add.text(textCreatedBy.width, textCreatedByYPosition, '@peptech_', creditStyle);
-        const textWith = this.add.text(textCreatedBy.width + textPeptech.width, textCreatedByYPosition, ' with ', creditStyle);
-        const textPhaser = this.add.text(textCreatedBy.width + textPeptech.width + textWith.width, textCreatedByYPosition, 'Phaser.js', creditStyle);
+        // Position based on layout
+        const textYPosition = this.ui.isLandscape ? 
+            (centerY - 80) : // Landscape layout
+            (centerY - 40);  // Portrait layout (more compact)
 
-        textPeptech.setInteractive({ useHandCursor: true });
-        textPeptech.on('pointerover', () => textPeptech.setStyle({ fill: '#f39c12' }));
-        textPeptech.on('pointerout', () => textPeptech.setStyle({ fill: '#ffffff' }));
-        textPeptech.on('pointerdown', () => {
-            window.open('https://x.com/peptech_', '_blank');
-        });
+        // Helper function to create a credit text container
+        const createCreditsText = () => {
+            const textCreatedBy = this.ui.createText(0, 0, 'Created by ', creditStyle);
+            const textPeptech = this.ui.createText(textCreatedBy.width, 0, '@peptech_', creditStyle);
+            const textWith = this.ui.createText(textCreatedBy.width + textPeptech.width, 0, ' with ', creditStyle);
+            const textPhaser = this.ui.createText(textCreatedBy.width + textPeptech.width + textWith.width, 0, 'Phaser.js', creditStyle);
+            
+            textPeptech.setInteractive({ useHandCursor: true });
+            textPeptech.on('pointerover', () => textPeptech.setStyle({ fill: '#f39c12' }));
+            textPeptech.on('pointerout', () => textPeptech.setStyle({ fill: '#ffffff' }));
+            textPeptech.on('pointerdown', () => {
+                window.open('https://x.com/peptech_', '_blank');
+            });
 
-        textPhaser.setInteractive({ useHandCursor: true });
-        textPhaser.on('pointerover', () => textPhaser.setStyle({ fill: '#f39c12' }));
-        textPhaser.on('pointerout', () => textPhaser.setStyle({ fill: '#ffffff' }));
-        textPhaser.on('pointerdown', () => {
-            window.open('https://phaser.io', '_blank');
-        });
-
-        const totalWidth = textCreatedBy.width + textPeptech.width + textWith.width + textPhaser.width;
-        this.add.container(centerX - totalWidth / 2, centerY, [
-            textCreatedBy,
-            textPeptech,
-            textWith,
-            textPhaser
-        ]);
-
-        // Create button style
-        const buttonStyle = {
-            fontFamily: 'Arial Black',
-            fontSize: `${38 * scaleFactor}px`,
-            color: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 8 * scaleFactor,
-            align: 'center',
-            backgroundColor: '#4a4a4a',
-            padding: {
-                left: 20 * scaleFactor,
-                right: 20 * scaleFactor,
-                top: 10 * scaleFactor,
-                bottom: 10 * scaleFactor
-            }
-        };
-
-        // Create "Start Game" button with background
-        const startButton = this.add.text(centerX, centerY + 20 * scaleFactor, 'Start Game', buttonStyle).setOrigin(0.5);
-
-        startButton.setInteractive({ useHandCursor: true });
-        startButton.on('pointerover', () => {
-            startButton.setStyle({ fill: '#f39c12' });
-            startButton.setScale(1.05);
-        });
-        startButton.on('pointerout', () => {
-            startButton.setStyle({ fill: '#ffffff' });
-            startButton.setScale(1);
-        });
-        startButton.on('pointerdown', () => {
-            this.music.stop();
-            this.scene.start('LevelSelect');
-        });
-        
-        // Add smaller buttons for feedback, credits, and roadmap
-        const smallButtonStyle = {
-            fontFamily: 'Arial Black',
-            fontSize: `${24 * scaleFactor}px`,
-            color: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 4 * scaleFactor,
-            align: 'center',
-            backgroundColor: '#4a4a4a',
-            padding: {
-                left: 15 * scaleFactor,
-                right: 15 * scaleFactor, 
-                top: 8 * scaleFactor,
-                bottom: 8 * scaleFactor
-            }
+            textPhaser.setInteractive({ useHandCursor: true });
+            textPhaser.on('pointerover', () => textPhaser.setStyle({ fill: '#f39c12' }));
+            textPhaser.on('pointerout', () => textPhaser.setStyle({ fill: '#ffffff' }));
+            textPhaser.on('pointerdown', () => {
+                window.open('https://phaser.io', '_blank');
+            });
+            
+            const totalWidth = textCreatedBy.width + textPeptech.width + textWith.width + textPhaser.width;
+            return this.add.container(centerX - totalWidth / 2, textYPosition, [
+                textCreatedBy,
+                textPeptech,
+                textWith,
+                textPhaser
+            ]);
         };
         
-        // Calculate button positions with vertical spacing
-        const buttonSpacing = 20 * scaleFactor;
-        // Increase spacing between "Start Game" and first button
-        const firstButtonY = centerY + 120 * scaleFactor;
-        
-        // Create Feedback button (external link)
-        const feedbackButton = this.add.text(centerX, firstButtonY, 'Feedback', smallButtonStyle).setOrigin(0.5);
-        
-        feedbackButton.setInteractive({ useHandCursor: true });
-        feedbackButton.on('pointerover', () => {
-            feedbackButton.setStyle({ fill: '#f39c12' });
-            feedbackButton.setScale(1.05);
-        });
-        feedbackButton.on('pointerout', () => {
-            feedbackButton.setStyle({ fill: '#ffffff' });
-            feedbackButton.setScale(1);
-        });
-        feedbackButton.on('pointerdown', () => {
-            window.open('https://solidsnekgame.featurebase.app/', '_blank');
-        });
-        
-        // Create Roadmap button (external link) - moved up in order
-        const roadmapButton = this.add.text(centerX, firstButtonY + buttonSpacing + 40 * scaleFactor, 'Roadmap', smallButtonStyle).setOrigin(0.5);
-        
-        roadmapButton.setInteractive({ useHandCursor: true });
-        roadmapButton.on('pointerover', () => {
-            roadmapButton.setStyle({ fill: '#f39c12' });
-            roadmapButton.setScale(1.05);
-        });
-        roadmapButton.on('pointerout', () => {
-            roadmapButton.setStyle({ fill: '#ffffff' });
-            roadmapButton.setScale(1);
-        });
-        roadmapButton.on('pointerdown', () => {
-            window.open('https://solidsnekgame.featurebase.app/roadmap', '_blank');
-        });
-        
-        // Create Credits button (internal link) - moved to the end
-        const creditsButton = this.add.text(centerX, firstButtonY + (buttonSpacing + 40 * scaleFactor) * 2, 'Credits', smallButtonStyle).setOrigin(0.5);
+        createCreditsText();
 
-        creditsButton.setInteractive({ useHandCursor: true });
-        creditsButton.on('pointerover', () => {
-            creditsButton.setStyle({ fill: '#f39c12' });
-            creditsButton.setScale(1.05);
-        });
-        creditsButton.on('pointerout', () => {
-            creditsButton.setStyle({ fill: '#ffffff' });
-            creditsButton.setScale(1);
-        });
-        creditsButton.on('pointerdown', () => {
-            this.scene.start('Credits'); // Navigate to the Credits scene
-        });
-
-        // Add a note at the bottom
-        this.add.text(centerX, height - 80 * scaleFactor, 
-            'Solid Snek is a fan project inspired by Metal Gear Solid.\nNo affiliation with Konami or Hideo Kojima.', {
-            fontFamily: 'Arial',
-            fontSize: `${14 * scaleFactor}px`,
-            color: '#cccccc',
-            stroke: '#000000',
-            strokeThickness: 2 * scaleFactor,
-            align: 'center'
-        }).setOrigin(0.5);
+        // Create Start Game button using our responsive button creator
+        const startButton = this.ui.createButton(
+            centerX, 
+            centerY + 20, 
+            'Start Game', 
+            {
+                fontFamily: 'Arial Black',
+                fontSize: '38px',
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 8,
+                align: 'center',
+                backgroundColor: '#4a4a4a'
+            },
+            () => {
+                this.music.stop();
+                this.scene.start('LevelSelect');
+            }
+        );
         
-        // Add sound control button in the top-right corner
-        const soundButton = this.add.text(width - 20, 20, '🔇', {
-            fontFamily: 'Arial',
-            fontSize: `${24 * scaleFactor}px`,
-            color: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 4 * scaleFactor
-        }).setOrigin(1, 0);
+        // Calculate button positions with responsive spacing
+        // Adapt spacing based on orientation
+        const buttonSpacing = this.ui.isMobile ? 
+            (this.ui.isLandscape ? 20 : 15) : // Mobile (compact in portrait)
+            20;                               // Desktop
+            
+        const firstButtonY = centerY + (this.ui.isLandscape ? 120 : 100);
+        
+        // Use the responsive button creator for all buttons
+        this.ui.createButton(
+            centerX, 
+            firstButtonY, 
+            'Feedback', 
+            {
+                fontFamily: 'Arial Black',
+                fontSize: '24px',
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 4,
+                align: 'center',
+                backgroundColor: '#4a4a4a'
+            },
+            () => {
+                window.open('https://solidsnekgame.featurebase.app/', '_blank');
+            }
+        );
+        
+        this.ui.createButton(
+            centerX, 
+            firstButtonY + buttonSpacing + 40, 
+            'Roadmap', 
+            {
+                fontFamily: 'Arial Black',
+                fontSize: '24px', 
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 4,
+                align: 'center',
+                backgroundColor: '#4a4a4a'
+            },
+            () => {
+                window.open('https://solidsnekgame.featurebase.app/roadmap', '_blank');
+            }
+        );
+        
+        this.ui.createButton(
+            centerX, 
+            firstButtonY + (buttonSpacing + 40) * 2, 
+            'Credits', 
+            {
+                fontFamily: 'Arial Black',
+                fontSize: '24px',
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 4,
+                align: 'center',
+                backgroundColor: '#4a4a4a'
+            },
+            () => {
+                this.scene.start('Credits');
+            }
+        );
+
+        // Create a note at the bottom with responsive sizing and positioning
+        // Position at bottom with safe area margins
+        const bottomMargin = this.ui.getSafeZone().bottom + 20;
+        
+        this.ui.createText(
+            centerX, 
+            height - bottomMargin, 
+            'Solid Snek is a fan project inspired by Metal Gear Solid.\nNo affiliation with Konami or Hideo Kojima.', 
+            {
+                fontFamily: 'Arial',
+                fontSize: '14px',
+                color: '#cccccc',
+                stroke: '#000000',
+                strokeThickness: 2,
+                align: 'center'
+            }
+        ).setOrigin(0.5);
+        
+        // Add sound control button with margin for notches/safe areas
+        const soundButtonX = width - this.ui.getSafeZone().right - 20;
+        const soundButtonY = this.ui.getSafeZone().top + 20;
+        
+        const soundButton = this.ui.createText(
+            soundButtonX, 
+            soundButtonY, 
+            '🔇', 
+            {
+                fontFamily: 'Arial',
+                fontSize: '24px',
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 4
+            }
+        ).setOrigin(1, 0);
         
         soundButton.setInteractive({ useHandCursor: true });
         soundButton.on('pointerover', () => soundButton.setAlpha(0.7));

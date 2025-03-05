@@ -1,4 +1,5 @@
 import { Scene } from 'phaser';
+import { ResponsiveUI } from '../utils/ResponsiveUI';
 import { gameProgress } from './GameProgress';
 import { AI } from '../entities/AI';
 
@@ -279,6 +280,7 @@ export class Game extends Scene {
 
     // Initialize all class variables
     initialize() {
+        this.ui = null;
         this.showDebug = false;
         this.darknessEnabled = true;
         this.player = null;
@@ -332,6 +334,15 @@ export class Game extends Scene {
     }
 
     create() {
+        // Initialize responsive UI helper
+        this.ui = new ResponsiveUI(this);
+
+        // Debug graphics
+        this.debugGraphics = this.add.graphics();
+
+        // Create a graphics object for visualizing patrol paths
+        this.patrolPathGraphics = this.add.graphics();
+
         // Create the tilemap
         this.map = this.make.tilemap({ key: this.currentLevel, tileWidth: 16, tileHeight: 16 });
         const tileset = this.map.addTilesetImage('tiles');
@@ -371,13 +382,7 @@ export class Game extends Scene {
         this.cameras.main.startFollow(this.player);
         this.cameras.main.setZoom(this.currentZoom);
 
-        // Debug graphics
-        this.debugGraphics = this.add.graphics();
-
-        // Create a graphics object for visualizing patrol paths
-        this.patrolPathGraphics = this.add.graphics();
-
-        // Display current level in the UI
+        // Display current level in the UI with proper positioning
         let levelNumber;
         if (this.currentLevel === 'map') {
             levelNumber = 1;
@@ -385,55 +390,17 @@ export class Game extends Scene {
             levelNumber = parseInt(this.currentLevel.replace('level', '')) || 1;
         }
         
-        // Create the developer help text (positioned below the menu button)
-        this.helpText = this.add.text(16, 80, this.getHelpMessage(), {
-            fontSize: '18px',
-            fill: '#ffffff'
-        });
-        this.helpText.setScrollFactor(0);
-        this.helpText.setVisible(false);
-
-        // Create timer text
-        this.timerText = this.add.text(16, 16, `Level ${levelNumber} - Time remaining: ${this.timeLimit}`, {
-            fontSize: '18px',
-            fill: '#ffffff'
-        });
-        this.timerText.setScrollFactor(0);
-
-        const { width, height } = this.cameras.main;
-        this.minimap = new Minimap(this, {
-            x: width - 180,
-            y: 20,
-            width: 160,
-            height: 120
-        });
-
-        // Set up window resize event to update the minimap position (ADD THIS)
+        // Apply different layouts for different orientations
+        this.setupGameUI(levelNumber);
+        
+        // Listen for orientation changes to update the UI
         this.scale.on('resize', (gameSize) => {
+            this.ui.handleResize(gameSize);
+            this.setupGameUI(levelNumber);
             if (this.minimap) {
                 this.minimap.resize(gameSize.width, gameSize.height);
             }
         });
-        
-        // Add "Return to Main Menu" button
-        const menuButton = this.add.text(16, 50, 'Return to Main Menu', {
-            fontSize: '14px',
-            fill: '#ffffff',
-            backgroundColor: '#4a4a4a',
-            padding: {
-                left: 8,
-                right: 8,
-                top: 4,
-                bottom: 4
-            }
-        });
-        menuButton.setScrollFactor(0);
-        menuButton.setInteractive({ useHandCursor: true })
-            .on('pointerover', () => menuButton.setStyle({ fill: '#f39c12' }))
-            .on('pointerout', () => menuButton.setStyle({ fill: '#ffffff' }))
-            .on('pointerdown', () => {
-                this.cleanupAndChangeScene('MainMenu');
-            });
 
         // Start the timer
         this.timerEvent = this.time.addEvent({
@@ -449,7 +416,7 @@ export class Game extends Scene {
         this.cursors = this.input.keyboard.createCursorKeys();
 
         // Create virtual joystick for touch devices
-        if (this.sys.game.device.input.touch) {
+        if (this.sys.game.device.input.touch || this.ui.isMobile) {
             this.createVirtualJoystick();
         }
 
@@ -471,6 +438,106 @@ export class Game extends Scene {
         
         // Spawn enemies
         this.spawnEnemies();
+    }
+
+    // New method to set up UI based on orientation
+    setupGameUI(levelNumber) {
+        const { width, height } = this.cameras.main;
+        const safeZone = this.ui.getSafeZone();
+        
+        // Clear existing UI elements if they exist
+        if (this.timerText) this.timerText.destroy();
+        if (this.helpText) this.helpText.destroy();
+        if (this.menuButton) this.menuButton.destroy();
+        
+        // Recreate UI elements with appropriate positioning
+        if (this.ui.isLandscape) {
+            // Landscape layout - UI at top
+            this.timerText = this.ui.createText(
+                safeZone.left + 16, 
+                safeZone.top + 16, 
+                `Level ${levelNumber} - Time remaining: ${this.timeLimit}`, 
+                { fontSize: '18px', fill: '#ffffff' }
+            ).setScrollFactor(0);
+            
+            // Create help text
+            this.helpText = this.ui.createText(
+                safeZone.left + 16, 
+                safeZone.top + 80, 
+                this.getHelpMessage(), 
+                { fontSize: '14px', fill: '#ffffff' }
+            ).setScrollFactor(0).setVisible(false);
+            
+            // Menu button at top right
+            this.menuButton = this.ui.createButton(
+                width - safeZone.right - 120, 
+                safeZone.top + 16, 
+                'Main Menu', 
+                {
+                    fontSize: '14px',
+                    fill: '#ffffff',
+                    backgroundColor: '#4a4a4a',
+                    padding: { left: 8, right: 8, top: 4, bottom: 4 }
+                },
+                () => this.cleanupAndChangeScene('MainMenu')
+            ).setScrollFactor(0);
+            
+            // Create minimap in top right corner with appropriate size
+            if (this.minimap) this.minimap.destroy();
+            
+            this.minimap = new Minimap(this, {
+                x: width - safeZone.right - 180,
+                y: safeZone.top + 20,
+                width: 160,
+                height: 120
+            });
+        } else {
+            // Portrait layout - more compact UI
+            this.timerText = this.ui.createText(
+                width / 2, 
+                safeZone.top + 16, 
+                `Level ${levelNumber} - Time: ${this.timeLimit}`, 
+                { fontSize: '16px', fill: '#ffffff' }
+            ).setScrollFactor(0).setOrigin(0.5, 0);
+            
+            // Create help text
+            this.helpText = this.ui.createText(
+                safeZone.left + 16, 
+                safeZone.top + 60, 
+                this.getHelpMessage(), 
+                { fontSize: '12px', fill: '#ffffff' }
+            ).setScrollFactor(0).setVisible(false);
+            
+            // Menu button below timer
+            this.menuButton = this.ui.createButton(
+                width / 2, 
+                safeZone.top + 45, 
+                'Menu', 
+                {
+                    fontSize: '12px',
+                    fill: '#ffffff',
+                    backgroundColor: '#4a4a4a',
+                    padding: { left: 6, right: 6, top: 3, bottom: 3 }
+                },
+                () => this.cleanupAndChangeScene('MainMenu')
+            ).setScrollFactor(0).setOrigin(0.5, 0);
+            
+            // Create smaller minimap in corner
+            if (this.minimap) this.minimap.destroy();
+            
+            this.minimap = new Minimap(this, {
+                x: width - safeZone.right - 120,
+                y: safeZone.top + 20,
+                width: 110,
+                height: 80
+            });
+        }
+        
+        // Optimize joystick positioning for the current orientation if it exists
+        if (this.joystick) {
+            this.joystick.destroy();
+            this.createVirtualJoystick();
+        }
     }
     
     // New toggle debug function for more effective debug toggling
@@ -593,16 +660,33 @@ export class Game extends Scene {
         this.scene.start(sceneName, data);
     }
     
+    // Update virtual joystick creation to be orientation-aware
     createVirtualJoystick() {
         const margin = 20;
-        const radius = 50;
+        const radius = this.ui.isMobile ? 
+            (this.ui.isLandscape ? 60 : 50) : // Larger on mobile landscape, smaller on portrait
+            50;
+            
         const gameWidth = Number(this.sys.game.config.width);
         const gameHeight = Number(this.sys.game.config.height);
         
+        // Position differently based on orientation
+        let x, y;
+        
+        if (this.ui.isLandscape) {
+            // Bottom right corner in landscape
+            x = gameWidth - margin - radius;
+            y = gameHeight - margin - radius;
+        } else {
+            // Bottom center in portrait (better for thumb access)
+            x = gameWidth / 2;
+            y = gameHeight - margin - radius;
+        }
+        
         // Create a new joystick
         this.joystick = this.plugins.get('rexVirtualJoystick').add(this, {
-            x: gameWidth - margin - radius,
-            y: gameHeight - margin - radius,
+            x: x,
+            y: y,
             radius: radius,
             base: this.add.circle(0, 0, radius, 0x888888),
             thumb: this.add.circle(0, 0, radius * 0.5, 0xcccccc)
@@ -774,9 +858,16 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
         } else if (this.cursors && this.cursors.down && this.cursors.down.isDown) {
             velocityY = 100;
         }
-        
-        // Virtual joystick input
-        if (this.joystickCursor) {
+
+        // Virtual joystick input - improved with analog values
+        if (this.joystick && this.joystick.force > 0) {
+            // Use the actual joystick angle and force for more precise analog control
+            const force = Math.min(1, this.joystick.force / 50); // Normalize force
+            velocityX = Math.cos(this.joystick.angle) * force * 100;
+            velocityY = Math.sin(this.joystick.angle) * force * 100;
+        } 
+        // Fallback to digital cursor keys if using the older joystick implementation
+        else if (this.joystickCursor) {
             if (this.joystickCursor.left.isDown) {
                 velocityX = -100;
             } else if (this.joystickCursor.right.isDown) {
@@ -1403,10 +1494,8 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
         const { width, height } = this.cameras.main;
         const centerX = this.cameras.main.worldView.x + width / 2;
         const centerY = this.cameras.main.worldView.y + height / 2;
-        const baseWidth = 800;
-        const scaleFactor = width / baseWidth;
         
-        // Create background
+        // Create background overlay
         const overlay = this.add.rectangle(
             centerX, 
             centerY, 
@@ -1416,14 +1505,20 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
             0.7
         );
         
-        // Win message
-        const winText = this.add.text(centerX, centerY - 100 * scaleFactor, 'Level Complete!', {
-            fontFamily: 'Arial Black',
-            fontSize: `${48 * scaleFactor}px`,
-            fill: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 6 * scaleFactor
-        }).setOrigin(0.5);
+        // Create win message with responsive text
+        this.ui.createText(
+            centerX, 
+            centerY - (this.ui.isMobile ? 70 : 100), 
+            'Level Complete!', 
+            {
+                fontFamily: 'Arial Black',
+                fontSize: '48px',
+                fill: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 6,
+                align: 'center'
+            }
+        ).setOrigin(0.5);
         
         // Get current level number
         let currentLevelNum;
@@ -1438,62 +1533,54 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
         const nextLevelKey = `level${nextLevelNum}`;
         const nextLevelExists = this.cache.tilemap.exists(nextLevelKey);
         
+        // Create button style for all buttons
         const buttonStyle = {
             fontFamily: 'Arial Black',
-            fontSize: `${24 * scaleFactor}px`,
+            fontSize: '24px',
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 4 * scaleFactor,
+            strokeThickness: 4,
             backgroundColor: '#4a4a4a',
-            padding: {
-                left: 16 * scaleFactor,
-                right: 16 * scaleFactor,
-                top: 8 * scaleFactor,
-                bottom: 8 * scaleFactor
-            }
+            align: 'center'
         };
         
-        // Next level button
+        // Calculate vertical spacing based on device
+        const buttonSpacing = this.ui.isMobile ? (this.ui.isLandscape ? 60 : 50) : 60;
+        
+        // Next level button (if available)
         if (nextLevelExists) {
-            const nextLevelButton = this.add.text(centerX, centerY, `Next Level`, buttonStyle).setOrigin(0.5);
-            
-            nextLevelButton.setInteractive({ useHandCursor: true })
-                .on('pointerover', () => nextLevelButton.setStyle({ color: '#f39c12' }))
-                .on('pointerout', () => nextLevelButton.setStyle({ color: '#ffffff' }))
-                .on('pointerdown', () => {
+            this.ui.createButton(
+                centerX,
+                centerY,
+                'Next Level',
+                buttonStyle,
+                () => {
                     this.cleanupAndChangeScene('Game', { levelKey: nextLevelKey });
-                });
+                }
+            );
         }
         
         // Level select button
-        const levelSelectButton = this.add.text(
-            centerX, 
-            centerY + (nextLevelExists ? 60 : 0) * scaleFactor, 
-            'Level Select', 
-            buttonStyle
-        ).setOrigin(0.5);
-        
-        levelSelectButton.setInteractive({ useHandCursor: true })
-            .on('pointerover', () => levelSelectButton.setStyle({ color: '#f39c12' }))
-            .on('pointerout', () => levelSelectButton.setStyle({ color: '#ffffff' }))
-            .on('pointerdown', () => {
+        this.ui.createButton(
+            centerX,
+            centerY + (nextLevelExists ? buttonSpacing : 0),
+            'Level Select',
+            buttonStyle,
+            () => {
                 this.cleanupAndChangeScene('LevelSelect');
-            });
+            }
+        );
         
         // Main menu button
-        const mainMenuButton = this.add.text(
-            centerX, 
-            centerY + (nextLevelExists ? 120 : 60) * scaleFactor, 
-            'Main Menu', 
-            buttonStyle
-        ).setOrigin(0.5);
-        
-        mainMenuButton.setInteractive({ useHandCursor: true })
-            .on('pointerover', () => mainMenuButton.setStyle({ color: '#f39c12' }))
-            .on('pointerout', () => mainMenuButton.setStyle({ color: '#ffffff' }))
-            .on('pointerdown', () => {
+        this.ui.createButton(
+            centerX,
+            centerY + (nextLevelExists ? buttonSpacing * 2 : buttonSpacing),
+            'Main Menu',
+            buttonStyle,
+            () => {
                 this.cleanupAndChangeScene('MainMenu');
-            });
+            }
+        );
     }
 
     // Lose screen
@@ -1501,10 +1588,8 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
         const { width, height } = this.cameras.main;
         const centerX = this.cameras.main.worldView.x + width / 2;
         const centerY = this.cameras.main.worldView.y + height / 2;
-        const baseWidth = 800;
-        const scaleFactor = width / baseWidth;
         
-        // Create background
+        // Create background overlay
         const overlay = this.add.rectangle(
             centerX, 
             centerY, 
@@ -1514,68 +1599,66 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
             0.7
         );
         
-        // Lose message
-        const loseText = this.add.text(centerX, centerY - 100 * scaleFactor, 'Time\'s Up!', {
-            fontFamily: 'Arial Black',
-            fontSize: `${48 * scaleFactor}px`,
-            fill: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 6 * scaleFactor
-        }).setOrigin(0.5);
+        // Create lose message with responsive text
+        this.ui.createText(
+            centerX, 
+            centerY - (this.ui.isMobile ? 70 : 100), 
+            'Time\'s Up!', 
+            {
+                fontFamily: 'Arial Black',
+                fontSize: '48px',
+                fill: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 6,
+                align: 'center'
+            }
+        ).setOrigin(0.5);
         
+        // Create button style for all buttons
         const buttonStyle = {
             fontFamily: 'Arial Black',
-            fontSize: `${24 * scaleFactor}px`,
+            fontSize: '24px',
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 4 * scaleFactor,
+            strokeThickness: 4,
             backgroundColor: '#4a4a4a',
-            padding: {
-                left: 16 * scaleFactor,
-                right: 16 * scaleFactor,
-                top: 8 * scaleFactor,
-                bottom: 8 * scaleFactor
-            }
+            align: 'center'
         };
         
-        // Retry button
-        const retryButton = this.add.text(centerX, centerY, 'Retry Level', buttonStyle).setOrigin(0.5);
+        // Calculate vertical spacing based on device
+        const buttonSpacing = this.ui.isMobile ? (this.ui.isLandscape ? 60 : 50) : 60;
         
-        retryButton.setInteractive({ useHandCursor: true })
-            .on('pointerover', () => retryButton.setStyle({ color: '#f39c12' }))
-            .on('pointerout', () => retryButton.setStyle({ color: '#ffffff' }))
-            .on('pointerdown', () => {
+        // Retry button
+        this.ui.createButton(
+            centerX,
+            centerY,
+            'Retry Level',
+            buttonStyle,
+            () => {
                 this.cleanupAndChangeScene('Game', { levelKey: this.currentLevel });
-            });
+            }
+        );
         
         // Level select button
-        const levelSelectButton = this.add.text(
-            centerX, 
-            centerY + 60 * scaleFactor, 
-            'Level Select', 
-            buttonStyle
-        ).setOrigin(0.5);
-        
-        levelSelectButton.setInteractive({ useHandCursor: true })
-            .on('pointerover', () => levelSelectButton.setStyle({ color: '#f39c12' }))
-            .on('pointerout', () => levelSelectButton.setStyle({ color: '#ffffff' }))
-            .on('pointerdown', () => {
+        this.ui.createButton(
+            centerX,
+            centerY + buttonSpacing,
+            'Level Select',
+            buttonStyle,
+            () => {
                 this.cleanupAndChangeScene('LevelSelect');
-            });
+            }
+        );
         
         // Main menu button
-        const mainMenuButton = this.add.text(
-            centerX, 
-            centerY + 120 * scaleFactor, 
-            'Main Menu', 
-            buttonStyle
-        ).setOrigin(0.5);
-        
-        mainMenuButton.setInteractive({ useHandCursor: true })
-            .on('pointerover', () => mainMenuButton.setStyle({ color: '#f39c12' }))
-            .on('pointerout', () => mainMenuButton.setStyle({ color: '#ffffff' }))
-            .on('pointerdown', () => {
+        this.ui.createButton(
+            centerX,
+            centerY + buttonSpacing * 2,
+            'Main Menu',
+            buttonStyle,
+            () => {
                 this.cleanupAndChangeScene('MainMenu');
-            });
+            }
+        );
     }
 }
