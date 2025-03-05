@@ -156,3 +156,11 @@ I have implemented the ResponsiveUI.js code and it's working well and sizing thi
 However, on mobile, the virtual joystick is too far over to the right on both potrait and landscape layouts. 
 
 Can you fix this?
+
+# Question
+Can you update my MainMenu.js file as follows:
+1. Decrease all font sizes a bit
+2. Make all buttons the same size
+3. Space all buttons out equally 
+
+# Mobile UI Height Options
