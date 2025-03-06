@@ -11,7 +11,7 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         // Set up basic properties
         this.speed = 70; // Base speed
         this.visionRadius = 10 * 16; // Default vision range (10 tiles)
-        this.visionAngle = Math.PI / 2; // 90 degrees field of view
+        this.visionAngle = Math.PI / 3; // 60 degrees field of view
         this.facingAngle = 0;
         this.sightLine = null;
         this.graphics = scene.add.graphics();
