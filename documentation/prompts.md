@@ -177,4 +177,4 @@ Is there a good solution for these issues I'm having?
 # Noise
 I want to add the ability for the player to "Yell" by pressing the "Q" key. On mobile, add a button to yell to the bottom left hand corner of the screen.
 
-When they yell, AI will say above their heads "What was that noise?" and if they are within range, they will move toward the players position. 
+When they yell, AI will say above their heads "What was that noise?" and if they are within a certain range, they will move toward the players position. 
