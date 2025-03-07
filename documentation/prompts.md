@@ -173,3 +173,8 @@ Is there a good solution for these issues I'm having?
 # Game UI Improvements
 1. Under the game's minimap: Display the level, time remaining, and alert status at all times underneath the minimap. Make it the same size as the current alert text. Then remove the level and time remaining from the upper left hand corner. 
 2. Move the "Main menu" button location from behind the minimap to the upper left hand corner of the screen. 
+
+# Noise
+I want to add the ability for the player to "Yell" by pressing the "Q" key. On mobile, add a button to yell to the bottom left hand corner of the screen.
+
+When they yell, AI will say above their heads "What was that noise?" and if they are within range, they will move toward the players position. 
