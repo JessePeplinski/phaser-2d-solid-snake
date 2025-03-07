@@ -5,8 +5,8 @@
     },
     "activeFile": "assets/tilemaps/level2.tmx",
     "expandedProjectPaths": [
-        ".",
         "assets",
+        ".",
         "assets/tilemaps"
     ],
     "file.lastUsedOpenFilter": "All Files (*)",
@@ -15,23 +15,23 @@
             "scale": 1.5,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 271.66666666666663,
+                "x": 271.3333333333333,
                 "y": 266
             }
         },
         "assets/tilemaps/level2.tmx": {
-            "scale": 0.75,
+            "scale": 4,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 178,
-                "y": -452
+                "x": -9,
+                "y": -309.5
             }
         },
         "assets/tilemaps/level3.tmx": {
             "scale": 1,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": -126.5,
+                "x": -127,
                 "y": -685
             }
         },
@@ -44,7 +44,7 @@
             }
         },
         "assets/tilemaps/tileset.tsx": {
-            "scaleInDock": 2,
+            "scaleInDock": 1.5,
             "scaleInEditor": 1.5
         },
         "level1.tmx": {
@@ -65,16 +65,16 @@
     "map.tileWidth": 16,
     "openFiles": [
         "assets/tilemaps/level1.tmx",
-        "assets/tilemaps/tileset.tsx",
-        "assets/tilemaps/level2.tmx"
+        "assets/tilemaps/level2.tmx",
+        "assets/tilemaps/level3.tmx"
     ],
     "project": "phaser-2d-solid-snake.tiled-project",
     "recentFiles": [
-        "assets/tilemaps/tileset.tsx",
         "assets/tilemaps/level1.tmx",
-        "assets/tilemaps/level4.tmx",
-        "assets/tilemaps/level2.tmx",
         "assets/tilemaps/level3.tmx",
+        "assets/tilemaps/level2.tmx",
+        "assets/tilemaps/tileset.tsx",
+        "assets/tilemaps/level4.tmx",
         "level1.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",
