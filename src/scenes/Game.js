@@ -830,6 +830,15 @@ export class Game extends Scene {
         this.keyA = null;
         this.keyS = null;
         this.keyD = null;
+
+        // 1. Add these properties to the initialize() method in the Game class:
+        this.keyQ = null;            // Q key for yelling
+        this.yellButton = null;      // Mobile yell button
+        this.yellCooldown = false;   // Prevent spamming yell
+        this.yellCooldownTime = 2000; // 2 seconds between yells
+        this.yellRadiusMax = 200;    // Maximum radius for yell to be heard
+
+
     }
 
     init(data) {
@@ -914,6 +923,9 @@ export class Game extends Scene {
             this.setupGameUI(levelNumber);
             if (this.minimap) {
                 this.minimap.resize(gameSize.width, gameSize.height);
+            }
+            if (this.sys.game.device.input.touch || this.ui.isMobile) {
+                this.createYellButton();
             }
         });
 
@@ -1060,6 +1072,10 @@ export class Game extends Scene {
             this.joystick.destroy();
             this.createVirtualJoystick();
         }
+
+        if (this.sys.game.device.input.touch || this.ui.isMobile) {
+            this.createYellButton();
+        }
     }
     
     // New toggle debug function for more effective debug toggling
@@ -1093,6 +1109,10 @@ export class Game extends Scene {
     
     // Set up keyboard event listeners
     setupKeyboardInput() {
+
+        // 2. Add Q key in setupKeyboardInput() method in the Game class:
+        this.keyQ = this.input.keyboard.addKey('Q');
+
         // Toggle debug menu
         const toggleDebugListener = (event) => {
             if (event.key === '`') {
@@ -1139,6 +1159,238 @@ export class Game extends Scene {
         this.input.keyboard.on('keydown-ESC', exitToLevelSelectListener);
         this.keyListeners.push({ event: 'keydown-ESC', handler: exitToLevelSelectListener });
     }
+
+    // 3. Add this method to the Game class to create the yell button for mobile
+    createYellButton() {
+        // Remove existing yell button if it exists
+        if (this.yellButton) {
+            this.yellButton.destroy();
+        }
+        
+        const { width, height } = this.cameras.main;
+        const safeZone = this.ui.getSafeZone();
+        
+        // Adjust position based on orientation and screen size
+        let buttonX, buttonY, buttonSize;
+        
+        if (this.ui.isLandscape) {
+            buttonX = safeZone.left + 80;
+            buttonY = height - safeZone.bottom - 80;
+            buttonSize = '22px';
+        } else {
+            // More compact on portrait mode
+            buttonX = safeZone.left + 60;
+            buttonY = height - safeZone.bottom - 60;
+            buttonSize = '18px';
+        }
+        
+        // Create a button in the bottom left corner
+        this.yellButton = this.ui.createButton(
+            buttonX,
+            buttonY,
+            'YELL',
+            {
+                fontFamily: 'Arial Black',
+                fontSize: buttonSize,
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 3,
+                backgroundColor: '#992200',
+                padding: {
+                    left: 16,
+                    right: 16,
+                    top: 8,
+                    bottom: 8
+                }
+            },
+            () => {
+                if (!this.yellCooldown && !this.gameOver) {
+                    this.yell();
+                }
+            }
+        ).setScrollFactor(0).setOrigin(0.5);
+        
+        // Add a subtle pulsing effect to make it stand out
+        this.tweens.add({
+            targets: this.yellButton,
+            scale: { from: 1, to: 1.05 },
+            duration: 500,
+            yoyo: true,
+            repeat: -1
+        });
+        
+        // Create a circular cooldown indicator behind the button
+        this.yellCooldownIndicator = this.add.arc(buttonX, buttonY, 40, 0, 360, false, 0x000000, 0.4);
+        this.yellCooldownIndicator.setScrollFactor(0).setVisible(false);
+        this.yellCooldownIndicator.setDepth(this.yellButton.depth - 1);
+    }
+
+    // 4. Add this function to handle the yelling action
+    yell() {
+        // Return if game is over
+        if (this.gameOver || this.gameWon) return;
+
+
+        console.log('Player yelled!');
+        
+        // Set cooldown
+        this.yellCooldown = true;
+        
+        // Play yell sound effect if available
+        // Add a sound for yelling if you have one, otherwise could reuse the alert sound
+        if (this.sound.get('yell') && !this.sound.mute) {
+            const yellSound = this.sound.get('yell');
+            yellSound.play({ volume: 0.3 });
+        }
+        
+        // Visual indication of yelling (expanding circle)
+        const circle = this.add.circle(this.player.x, this.player.y, 20, 0xffffff, 0.5);
+        this.tweens.add({
+            targets: circle,
+            radius: this.yellRadiusMax,
+            alpha: 0,
+            duration: 800,
+            ease: 'Power2',
+            onComplete: () => {
+                circle.destroy();
+            }
+        });
+        
+        // Alert nearby AI enemies
+        this.alertNearbyEnemies();
+        
+        // Show cooldown indicator if applicable
+        if (this.yellButton && this.yellCooldownIndicator) {
+            // Show the cooldown indicator
+            this.yellCooldownIndicator.setVisible(true);
+            
+            // Change button color to indicate cooldown
+            this.yellButton.setStyle({ backgroundColor: '#555555' });
+            
+            // Animate the cooldown indicator
+            this.tweens.add({
+                targets: this.yellCooldownIndicator,
+                fillAlpha: { from: 0.7, to: 0 },
+                duration: this.yellCooldownTime,
+                ease: 'Linear',
+                onComplete: () => {
+                    this.yellCooldownIndicator.setVisible(false);
+                }
+            });
+        }
+        
+        // Reset cooldown after delay
+        this.time.delayedCall(this.yellCooldownTime, () => {
+            this.yellCooldown = false;
+            
+            // Give visual feedback that yell is available again
+            if (this.yellButton) {
+                // Reset button color
+                this.yellButton.setStyle({ backgroundColor: '#992200' });
+                
+                // Add a "ready" animation
+                this.tweens.add({
+                    targets: this.yellButton,
+                    scale: { from: 1.2, to: 1 },
+                    duration: 300,
+                    ease: 'Back.Out'
+                });
+            }
+        });
+    }
+
+    // 5. Add this function to alert nearby enemies
+    alertNearbyEnemies() {
+        // Define arrays of possible dialogue responses
+        const closeResponsePhrases = [
+            "What was that noise?",
+            "I heard something!",
+            "Who's there?",
+            "Something's not right...",
+            "Did you hear that?",
+            "That wasn't the wind...",
+            "Show yourself!",
+            "Someone's here!"
+        ];
+        
+        const distantResponsePhrases = [
+            "Huh?",
+            "Hmm?",
+            "What's that?",
+            "Strange...",
+            "Something's off...",
+            "Did I hear something?",
+            "What now?",
+            "...?"
+        ];
+        
+        this.enemies.forEach(enemy => {
+            // Calculate distance to the player
+            const distance = Phaser.Math.Distance.Between(
+                enemy.x, enemy.y,
+                this.player.x, this.player.y
+            );
+            
+            // Only alert enemies within range
+            if (distance <= this.yellRadiusMax) {
+                // The closer the enemy, the higher the alert level
+                const alertIncrease = Phaser.Math.Linear(50, 20, distance / this.yellRadiusMax);
+                
+                // Set the enemy to suspicious or searching state based on distance
+                if (distance < this.yellRadiusMax * 0.5) {
+                    // Enemy is close enough to hear clearly
+                    enemy.alertLevel = Math.min(100, enemy.alertLevel + alertIncrease);
+                    
+                    // Update last known position of player for the enemy
+                    enemy.playerMemory.lastKnownPosition = new Phaser.Math.Vector2(this.player.x, this.player.y);
+                    enemy.playerMemory.lastSeenTime = this.time.now;
+                    
+                    // Set enemy to searching state
+                    if (enemy.alertState !== enemy.alertStates.ALERT) {
+                        enemy.setAlertState(enemy.alertStates.SEARCHING);
+                        
+                        // Generate search points around player's position
+                        enemy.generateSearchPoints(enemy.playerMemory.lastKnownPosition);
+                    }
+                    
+                    // Choose a random phrase for close enemies
+                    const phrase = Phaser.Utils.Array.GetRandom(closeResponsePhrases);
+                    enemy.displayDialogue(phrase);
+                    
+                    // Add a small delay before the enemy starts moving
+                    enemy.isWaiting = true;
+                    enemy.waitTimer = 0;
+                    enemy.waitDuration = Phaser.Math.Between(300, 700);
+                } else {
+                    // Enemy is far enough that they only get suspicious
+                    enemy.alertLevel = Math.min(70, enemy.alertLevel + alertIncrease);
+                    
+                    // Set approximate position (add some randomness)
+                    const randomOffset = Phaser.Math.Between(-32, 32);
+                    enemy.playerMemory.lastKnownPosition = new Phaser.Math.Vector2(
+                        this.player.x + randomOffset,
+                        this.player.y + randomOffset
+                    );
+                    enemy.playerMemory.lastSeenTime = this.time.now;
+                    
+                    // Set enemy to suspicious state
+                    if (enemy.alertState !== enemy.alertStates.ALERT &&
+                        enemy.alertState !== enemy.alertStates.SEARCHING) {
+                        enemy.setAlertState(enemy.alertStates.SUSPICIOUS);
+                    }
+                    
+                    // Choose a random phrase for distant enemies
+                    const phrase = Phaser.Utils.Array.GetRandom(distantResponsePhrases);
+                    enemy.displayDialogue(phrase);
+                    
+                    // Add a longer delay for distant enemies (they're less sure)
+                    enemy.isWaiting = true;
+                    enemy.waitTimer = 0;
+                    enemy.waitDuration = Phaser.Math.Between(700, 1200);
+                }
+            }
+        });
+    }
     
     // Properly clean up resources before changing scenes
     cleanupAndChangeScene(sceneName, data = {}) {
@@ -1182,6 +1434,16 @@ export class Game extends Scene {
         if (this.healthBar) {
             this.healthBar.destroy();
             this.healthBar = null;
+        }
+
+        if (this.yellButton) {
+            this.yellButton.destroy();
+            this.yellButton = null;
+        }
+        
+        if (this.yellCooldownIndicator) {
+            this.yellCooldownIndicator.destroy();
+            this.yellCooldownIndicator = null;
         }
         
         // Start the new scene
@@ -1334,12 +1596,13 @@ export class Game extends Scene {
 
     getHelpMessage() {
         return `Use the arrow keys or WASD on desktop or virtual joystick on mobile to move.
-Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
-Press "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}
-Press "X" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
-Press "Z" to reset zoom
-Enemies: ${this.enemies.length}
-AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!`;
+    Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
+    Press "Q" to yell and distract enemies (Cooldown: ${this.yellCooldown ? 'Active' : 'Ready'})
+    Press "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}
+    Press "X" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
+    Press "Z" to reset zoom
+    Enemies: ${this.enemies.length}
+    AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!`;
     }
 
     update(time, delta) {
@@ -1376,6 +1639,12 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
         // Call this in the update method:
         if (this.showDebug) {
             this.visualizePatrolPaths();
+        }
+
+        // In the update(time, delta) method, add this somewhere before the velocity calculations:
+        if (this.keyQ && this.keyQ.isDown && !this.yellCooldown && !this.gameOver) {
+            this.keyQ.isDown = false; // Reset to prevent holding down
+            this.yell();
         }
 
         // Reset player velocity
