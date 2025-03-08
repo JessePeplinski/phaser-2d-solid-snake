@@ -1236,11 +1236,10 @@ export class Game extends Scene {
         // Set cooldown
         this.yellCooldown = true;
         
-        // Play yell sound effect if available
-        // Add a sound for yelling if you have one, otherwise could reuse the alert sound
-        if (this.sound.get('yell') && !this.sound.mute) {
-            const yellSound = this.sound.get('yell');
-            yellSound.play({ volume: 0.3 });
+        // Play yell sound effect
+          if (!this.sound.mute) {
+            // Play the yell sound directly
+            this.sound.play('yell', { volume: 0.3 });
         }
         
         // Visual indication of yelling (expanding circle)
