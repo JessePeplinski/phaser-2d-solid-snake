@@ -178,3 +178,6 @@ Is there a good solution for these issues I'm having?
 I want to add the ability for the player to "Yell" by pressing the "Q" key. On mobile, add a button to yell to the bottom left hand corner of the screen.
 
 When they yell, AI will say above their heads "What was that noise?" and if they are within a certain range, they will move toward the players position. 
+
+# AI Pathing
+I have an issue with my AI pathing system. I have my AI spawn tile and then my AI paths that each AI should follow. However, when I open my debug menu for my view path, I see the AI is still trying to access other AI's view paths. This should not happen. Can you fix this?

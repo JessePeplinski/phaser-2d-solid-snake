@@ -867,6 +867,53 @@ export class Game extends Scene {
         // Create a graphics object for visualizing patrol paths
         this.patrolPathGraphics = this.add.graphics();
 
+        Phaser.GameObjects.Graphics.prototype.dashedLineTo = function(fromX, fromY, toX, toY, dashSize, gapSize) {
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const normX = dx / distance;
+            const normY = dy / distance;
+            let currX = fromX;
+            let currY = fromY;
+            let remainingDistance = distance;
+            
+            // Start path
+            this.beginPath();
+            
+            // Draw dashes
+            let isDrawing = true;
+            while (remainingDistance > 0) {
+                const segmentLength = isDrawing ? 
+                    Math.min(dashSize, remainingDistance) : 
+                    Math.min(gapSize, remainingDistance);
+                    
+                // If drawing, draw the line segment
+                if (isDrawing) {
+                    const nextX = currX + normX * segmentLength;
+                    const nextY = currY + normY * segmentLength;
+                    
+                    this.moveTo(currX, currY);
+                    this.lineTo(nextX, nextY);
+                    
+                    currX = nextX;
+                    currY = nextY;
+                } else {
+                    // Just update position without drawing
+                    currX += normX * segmentLength;
+                    currY += normY * segmentLength;
+                }
+                
+                // Reduce remaining distance and toggle drawing state
+                remainingDistance -= segmentLength;
+                isDrawing = !isDrawing;
+            }
+            
+            // Stroke the path
+            this.strokePath();
+            
+            return this;
+        };
+
         // Create the tilemap
         this.map = this.make.tilemap({ key: this.currentLevel, tileWidth: 16, tileHeight: 16 });
         const tileset = this.map.addTilesetImage('tiles');
@@ -1523,18 +1570,20 @@ export class Game extends Scene {
     visualizePatrolPaths() {
         this.patrolPathGraphics.clear();
         
-        // Only show if debug is enabled - early return if debug is not enabled
+        // Only show if debug is enabled
         if (!this.showDebug) {
             return;
         }
         
-        // Collect all patrol tiles
-        const patrolTiles = [];
+        // First, collect all patrol points for reference
+        const allPatrolPoints = [];
         this.layer.forEachTile(tile => {
             if (tile.index === 34) {
-                patrolTiles.push({
+                allPatrolPoints.push({
                     x: tile.pixelX + tile.width / 2,
                     y: tile.pixelY + tile.height / 2,
+                    tileX: tile.x,
+                    tileY: tile.y,
                     pixelX: tile.pixelX,
                     pixelY: tile.pixelY,
                     width: tile.width,
@@ -1543,11 +1592,11 @@ export class Game extends Scene {
             }
         });
         
-        // Draw tiles with high-visibility colors
-        this.patrolPathGraphics.lineStyle(2, 0xff00ff, 0.8); // Bright magenta outline
-        this.patrolPathGraphics.fillStyle(0x00ff00, 0.4);    // Bright green fill with transparency
+        // Draw all patrol tiles with a neutral color
+        this.patrolPathGraphics.lineStyle(1, 0x888888, 0.4); // Light gray outline for all tiles
+        this.patrolPathGraphics.fillStyle(0x888888, 0.2);    // Light gray fill for all tiles
         
-        patrolTiles.forEach(tile => {
+        allPatrolPoints.forEach(tile => {
             // Draw as a rectangle matching the tile size
             this.patrolPathGraphics.strokeRect(
                 tile.pixelX, tile.pixelY, 
@@ -1559,20 +1608,109 @@ export class Game extends Scene {
             );
         });
         
-        // Add visual connections between tiles to show the path
-        if (patrolTiles.length > 1) {
-            this.patrolPathGraphics.lineStyle(2, 0xffff00, 0.6); // Yellow line
-            this.patrolPathGraphics.beginPath();
-            this.patrolPathGraphics.moveTo(patrolTiles[0].x, patrolTiles[0].y);
-            
-            for (let i = 1; i < patrolTiles.length; i++) {
-                this.patrolPathGraphics.lineTo(patrolTiles[i].x, patrolTiles[i].y);
+        // Now visualize each enemy's assigned patrol path with a unique color
+        this.enemies.forEach((enemy, enemyIndex) => {
+            if (!enemy.hasAssignedPath || !enemy.patrolPath || enemy.patrolPath.length === 0) {
+                return;
             }
             
-            // Connect back to the first point
-            this.patrolPathGraphics.lineTo(patrolTiles[0].x, patrolTiles[0].y);
-            this.patrolPathGraphics.strokePath();
-        }
+            // Generate a unique color for this enemy based on its index
+            // This ensures each enemy has a distinct color
+            const hue = (enemyIndex * 137) % 360; // Use golden ratio to spread hues
+            const color = Phaser.Display.Color.HSLToColor(
+                hue / 360, 0.8, 0.6
+            ).color;
+            
+            // Draw the enemy's specific patrol path in its unique color
+            this.patrolPathGraphics.lineStyle(2, color, 0.8);
+            this.patrolPathGraphics.fillStyle(color, 0.4);
+            
+            // Draw path points
+            enemy.patrolPath.forEach(point => {
+                this.patrolPathGraphics.fillCircle(point.x, point.y, 4);
+            });
+            
+            // Draw path connections
+            if (enemy.patrolPath.length > 1) {
+                this.patrolPathGraphics.beginPath();
+                this.patrolPathGraphics.moveTo(enemy.patrolPath[0].x, enemy.patrolPath[0].y);
+                
+                for (let i = 1; i < enemy.patrolPath.length; i++) {
+                    this.patrolPathGraphics.lineTo(enemy.patrolPath[i].x, enemy.patrolPath[i].y);
+                }
+                
+                // Connect back to the first point for closed loops
+                if (enemy.isClosedLoopPath()) {
+                    this.patrolPathGraphics.lineTo(enemy.patrolPath[0].x, enemy.patrolPath[0].y);
+                }
+                
+                this.patrolPathGraphics.strokePath();
+            }
+            
+            // Highlight current path segment with a brighter color
+            if (enemy.currentPatrolPointIndex !== undefined) {
+                const currentIndex = enemy.currentPatrolPointIndex;
+                const nextIndex = enemy.getNextPatrolPointIndex();
+                
+                if (currentIndex !== undefined && nextIndex !== undefined &&
+                    enemy.patrolPath[currentIndex] && enemy.patrolPath[nextIndex]) {
+                    
+                    const currentPoint = enemy.patrolPath[currentIndex];
+                    const nextPoint = enemy.patrolPath[nextIndex];
+                    
+                    // Use a brighter version of the enemy's color for the current segment
+                    const brighterColor = Phaser.Display.Color.HSLToColor(
+                        hue / 360, 0.9, 0.7
+                    ).color;
+                    
+                    this.patrolPathGraphics.lineStyle(3, brighterColor, 0.9);
+                    this.patrolPathGraphics.beginPath();
+                    this.patrolPathGraphics.moveTo(currentPoint.x, currentPoint.y);
+                    this.patrolPathGraphics.lineTo(nextPoint.x, nextPoint.y);
+                    this.patrolPathGraphics.strokePath();
+                    
+                    // Draw interpolated target position (where AI is heading)
+                    if (enemy.alertState === enemy.alertStates.PATROL && 
+                        enemy.pathProgress !== undefined) {
+                        
+                        const dx = nextPoint.x - currentPoint.x;
+                        const dy = nextPoint.y - currentPoint.y;
+                        const targetX = currentPoint.x + dx * enemy.pathProgress;
+                        const targetY = currentPoint.y + dy * enemy.pathProgress;
+                        
+                        this.patrolPathGraphics.fillStyle(brighterColor, 0.9);
+                        this.patrolPathGraphics.fillCircle(targetX, targetY, 5);
+                    }
+                }
+            }
+            
+            // Draw a line from the enemy to its current target point
+            if (enemy.alertState === enemy.alertStates.PATROL) {
+                const currentIndex = enemy.currentPatrolPointIndex;
+                const nextIndex = enemy.getNextPatrolPointIndex();
+                
+                if (currentIndex !== undefined && nextIndex !== undefined &&
+                    enemy.patrolPath[currentIndex] && enemy.patrolPath[nextIndex]) {
+                    
+                    const currentPoint = enemy.patrolPath[currentIndex];
+                    const nextPoint = enemy.patrolPath[nextIndex];
+                    
+                    // Calculate the current target based on progress
+                    const dx = nextPoint.x - currentPoint.x;
+                    const dy = nextPoint.y - currentPoint.y;
+                    const targetX = currentPoint.x + dx * enemy.pathProgress;
+                    const targetY = currentPoint.y + dy * enemy.pathProgress;
+                    
+                    // Draw a line from the enemy to its current target
+                    this.patrolPathGraphics.lineStyle(1, color, 0.6);
+                    this.patrolPathGraphics.dashedLineTo(
+                        enemy.x, enemy.y,
+                        targetX, targetY,
+                        4, 4 // Dash and gap size
+                    );
+                }
+            }
+        });
     }
     
     updateHelpText() {
@@ -1844,22 +1982,16 @@ export class Game extends Scene {
         const patrolPaths = this.identifyDistinctPatrolPaths(patrolPoints);
         console.log(`Identified ${patrolPaths.length} distinct patrol paths`);
         
-        // If there's only one path, assign it to all enemies
-        if (patrolPaths.length === 1) {
-            this.enemies.forEach(enemy => {
-                enemy.assignPatrolPath(patrolPaths[0]);
-            });
-            return;
-        }
+        // Store assigned paths to ensure exclusivity
+        const assignedPathIndices = new Set();
         
-        // If there are multiple paths, assign each enemy to its closest path
+        // Assign paths to enemies, ensuring each enemy gets a unique path if possible
         this.enemies.forEach((enemy, index) => {
-            // Find the closest patrol path for this enemy
-            let closestPathIndex = 0;
-            let shortestDistance = Infinity;
-            
-            patrolPaths.forEach((path, pathIndex) => {
-                // Check distance to each point in the path
+            // Calculate distances from this enemy to each patrol path's nearest point
+            const pathDistances = patrolPaths.map((path, pathIndex) => {
+                let shortestDistance = Infinity;
+                
+                // Find the closest point in this path
                 path.forEach(point => {
                     const distance = Phaser.Math.Distance.Between(
                         enemy.x, enemy.y,
@@ -1868,14 +2000,52 @@ export class Game extends Scene {
                     
                     if (distance < shortestDistance) {
                         shortestDistance = distance;
-                        closestPathIndex = pathIndex;
                     }
                 });
+                
+                return { 
+                    pathIndex, 
+                    distance: shortestDistance,
+                    assigned: assignedPathIndices.has(pathIndex)
+                };
             });
             
-            // Assign the closest path to this enemy
-            enemy.assignPatrolPath(patrolPaths[closestPathIndex]);
-            console.log(`Enemy ${index} assigned to patrol path ${closestPathIndex} with ${patrolPaths[closestPathIndex].length} points`);
+            // Sort by distance (closest first)
+            pathDistances.sort((a, b) => a.distance - b.distance);
+            
+            // Try to find the closest unassigned path first
+            let targetPathIndex = -1;
+            
+            // First pass: try to find unassigned paths
+            for (const pathData of pathDistances) {
+                if (!pathData.assigned) {
+                    targetPathIndex = pathData.pathIndex;
+                    break;
+                }
+            }
+            
+            // If all paths are assigned or there are more enemies than paths,
+            // we'll need to share paths - take the closest one
+            if (targetPathIndex === -1 && pathDistances.length > 0) {
+                targetPathIndex = pathDistances[0].pathIndex;
+            }
+            
+            // If we found a valid path, assign it to this enemy
+            if (targetPathIndex !== -1) {
+                // Mark this path as assigned to prevent other enemies from using it
+                // unless there are more enemies than paths
+                if (this.enemies.length <= patrolPaths.length) {
+                    assignedPathIndices.add(targetPathIndex);
+                }
+                
+                enemy.assignPatrolPath(patrolPaths[targetPathIndex]);
+                enemy.assignedPathIndex = targetPathIndex; // Store which path this enemy is using
+                
+                console.log(`Enemy ${index} assigned to patrol path ${targetPathIndex} with ${patrolPaths[targetPathIndex].length} points`);
+            } else {
+                // Fallback - should never happen unless there are no paths
+                console.log(`No suitable patrol path found for enemy ${index}`);
+            }
         });
     }
 
