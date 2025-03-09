@@ -187,7 +187,7 @@ Think hard about the problem before responding.
 # Mobile UI Height Options
 I've implemented a new way to make this game responsive.
 
-However, playing on mobile, I have a main problem:
+However, playing on both dekstop and mobile devices, I have a main problem:
 1. I'm not able to take advantage of any of the vertical screen space I have to play the game.
 
 Can you address this on each of my game screens?
