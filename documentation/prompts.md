@@ -163,13 +163,6 @@ Can you update my MainMenu.js file as follows:
 2. Make all buttons the same size
 3. Space all buttons out equally 
 
-# Mobile UI Height Options
-I've recently implemented a new way to make this game responsive. However, playing on mobile, I have two problems:
-1. The UI is very zoomed out and it's hard to actually see what is going on in the game. 
-2. I'm not able to take advantage of any of the vertical screen space I have. 
-
-Is there a good solution for these issues I'm having? 
-
 # Game UI Improvements
 1. Under the game's minimap: Display the level, time remaining, and alert status at all times underneath the minimap. Make it the same size as the current alert text. Then remove the level and time remaining from the upper left hand corner. 
 2. Move the "Main menu" button location from behind the minimap to the upper left hand corner of the screen. 
@@ -190,3 +183,16 @@ As a result, sometimes the generateSearchPoints() function will map points they 
 Can you fix this so that this function will only generate search points within the bounds of the collision tiles? The AI should have knowledge on the tiles they can and cannot visit, which should help solve this. 
 
 Think hard about the problem before responding. 
+
+# Mobile UI Height Options
+I've implemented a new way to make this game responsive.
+
+However, playing on mobile, I have a main problem:
+1. I'm not able to take advantage of any of the vertical screen space I have to play the game.
+
+Can you address this on each of my game screens?
+
+Think hard about the problem before responding. 
+
+-- 
+1. The UI is very zoomed out and it's hard to actually see what is going on in the game. 
