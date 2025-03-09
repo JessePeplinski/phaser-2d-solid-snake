@@ -181,3 +181,12 @@ When they yell, AI will say above their heads "What was that noise?" and if they
 
 # AI Pathing
 I have an issue with my AI pathing system. I have my AI spawn tile and then my AI paths that each AI should follow. However, when I open my debug menu for my view path, I see the AI is still trying to access other AI's view paths. This should not happen. Can you fix this?
+
+# AI Generated Points
+I have an issue with my AI search functionality when exploring the generated points. In the maps I create, I will typically have the area bound by collision tiles so the player and enemies cannot escape it.
+
+As a result, sometimes the generateSearchPoints() function will map points they can never reach as a result of being bound within the collision tiles. This scenario happens especially when they are generating their search points in a small area like a hallways. 
+
+Can you fix this so that this function will only generate search points within the bounds of the collision tiles? The AI should have knowledge on the tiles they can and cannot visit, which should help solve this. 
+
+Think hard about the problem before responding. 
