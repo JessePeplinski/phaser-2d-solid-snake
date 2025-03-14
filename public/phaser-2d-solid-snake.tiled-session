@@ -5,42 +5,50 @@
     },
     "activeFile": "assets/tilemaps/level2.tmx",
     "expandedProjectPaths": [
+        "assets/tilemaps",
         "assets",
-        ".",
-        "assets/tilemaps"
+        "."
     ],
     "file.lastUsedOpenFilter": "All Files (*)",
     "fileStates": {
+        "assets/tilemaps/ai-debug.tmx": {
+            "scale": 0.8973046875,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": -117.01710852814415,
+                "y": -639.6935266205214
+            }
+        },
         "assets/tilemaps/level1.tmx": {
             "scale": 1.5,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 271.3333333333333,
+                "x": 197.66666666666663,
                 "y": 266
             }
         },
         "assets/tilemaps/level2.tmx": {
-            "scale": 4,
+            "scale": 1.5,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": -9,
-                "y": -309.5
+                "x": -3.3333333333333144,
+                "y": -532.6666666666666
             }
         },
         "assets/tilemaps/level3.tmx": {
             "scale": 1,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": -127,
-                "y": -685
+                "x": 146,
+                "y": 96
             }
         },
         "assets/tilemaps/level4.tmx": {
             "scale": 1,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 442.5,
-                "y": 287
+                "x": 60.5,
+                "y": -76
             }
         },
         "assets/tilemaps/tileset.tsx": {
@@ -70,11 +78,12 @@
     ],
     "project": "phaser-2d-solid-snake.tiled-project",
     "recentFiles": [
-        "assets/tilemaps/level1.tmx",
         "assets/tilemaps/level3.tmx",
+        "assets/tilemaps/level1.tmx",
         "assets/tilemaps/level2.tmx",
-        "assets/tilemaps/tileset.tsx",
+        "assets/tilemaps/ai-debug.tmx",
         "assets/tilemaps/level4.tmx",
+        "assets/tilemaps/tileset.tsx",
         "level1.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",
