@@ -163,13 +163,6 @@ Can you update my MainMenu.js file as follows:
 2. Make all buttons the same size
 3. Space all buttons out equally 
 
-# Mobile UI Height Options
-I've recently implemented a new way to make this game responsive. However, playing on mobile, I have two problems:
-1. The UI is very zoomed out and it's hard to actually see what is going on in the game. 
-2. I'm not able to take advantage of any of the vertical screen space I have. 
-
-Is there a good solution for these issues I'm having? 
-
 # Game UI Improvements
 1. Under the game's minimap: Display the level, time remaining, and alert status at all times underneath the minimap. Make it the same size as the current alert text. Then remove the level and time remaining from the upper left hand corner. 
 2. Move the "Main menu" button location from behind the minimap to the upper left hand corner of the screen. 
@@ -178,3 +171,28 @@ Is there a good solution for these issues I'm having?
 I want to add the ability for the player to "Yell" by pressing the "Q" key. On mobile, add a button to yell to the bottom left hand corner of the screen.
 
 When they yell, AI will say above their heads "What was that noise?" and if they are within a certain range, they will move toward the players position. 
+
+# AI Pathing
+I have an issue with my AI pathing system. I have my AI spawn tile and then my AI paths that each AI should follow. However, when I open my debug menu for my view path, I see the AI is still trying to access other AI's view paths. This should not happen. Can you fix this?
+
+# AI Generated Points
+I have an issue with my AI search functionality when exploring the generated points. In the maps I create, I will typically have the area bound by collision tiles so the player and enemies cannot escape it.
+
+As a result, sometimes the generateSearchPoints() function will map points they can never reach as a result of being bound within the collision tiles. This scenario happens especially when they are generating their search points in a small area like a hallways. 
+
+Can you fix this so that this function will only generate search points within the bounds of the collision tiles? The AI should have knowledge on the tiles they can and cannot visit, which should help solve this. 
+
+Think hard about the problem before responding. 
+
+# Mobile UI Height Options
+I've implemented a new way to make this game responsive.
+
+However, playing on both dekstop and mobile devices, I have a main problem:
+1. I'm not able to take advantage of any of the vertical screen space I have to play the game.
+
+Can you address this on each of my game screens?
+
+Think hard about the problem before responding. 
+
+-- 
+1. The UI is very zoomed out and it's hard to actually see what is going on in the game. 

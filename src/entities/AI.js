@@ -1,5 +1,121 @@
 import Phaser from 'phaser';
 
+// A simple pathfinder class to check if points are reachable
+class SimplePathfinder {
+    constructor(map, layer) {
+        this.map = map;
+        this.layer = layer;
+        this.tileSize = map.tileWidth; // Assuming square tiles
+    }
+    
+    // Check if target is reachable from start
+    isReachable(start, target) {
+        // Quick direct line-of-sight check first
+        if (this.hasLineOfSight(start, target)) {
+            return true;
+        }
+        
+        // If not directly reachable, do a simplified A* check
+        // Note: This is a simplified version - we're just checking reachability
+        // not finding the actual path
+        
+        // Convert positions to tile coordinates
+        const startTileX = Math.floor(start.x / this.tileSize);
+        const startTileY = Math.floor(start.y / this.tileSize);
+        const targetTileX = Math.floor(target.x / this.tileSize);
+        const targetTileY = Math.floor(target.y / this.tileSize);
+        
+        // Distance between points in tile space
+        const tileDistance = Phaser.Math.Distance.Between(
+            startTileX, startTileY, targetTileX, targetTileY
+        );
+        
+        // If too far, just use line of sight as an approximation
+        // This helps performance by not doing expensive A* for far away points
+        if (tileDistance > 15) {
+            return this.hasLineOfSight(start, target);
+        }
+        
+        // For reasonably close points, do a flood fill to check reachability
+        return this.canReachByFloodFill(startTileX, startTileY, targetTileX, targetTileY);
+    }
+    
+    // Check if there's a direct line of sight between two points
+    hasLineOfSight(start, target) {
+        const ray = new Phaser.Geom.Line(start.x, start.y, target.x, target.y);
+        
+        // Get all tiles along the ray path
+        const tiles = this.layer.getTilesWithinShape(ray);
+        
+        // Check if any solid tiles block the ray
+        for (const tile of tiles) {
+            if (tile.collides) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    // Check if target can be reached using flood fill algorithm
+    canReachByFloodFill(startX, startY, targetX, targetY) {
+        // Create a grid of visited tiles
+        const visited = {};
+        const key = (x, y) => `${x},${y}`;
+        
+        // Queue for breadth-first search
+        const queue = [{x: startX, y: startY}];
+        visited[key(startX, startY)] = true;
+        
+        // Directions to check (4-way connectivity)
+        const directions = [
+            {x: 0, y: -1}, // Up
+            {x: 1, y: 0},  // Right
+            {x: 0, y: 1},  // Down
+            {x: -1, y: 0}  // Left
+        ];
+        
+        // Maximum number of steps to check (prevents infinite loops)
+        const maxSteps = 200;
+        let steps = 0;
+        
+        while (queue.length > 0 && steps < maxSteps) {
+            steps++;
+            const current = queue.shift();
+            
+            // Check if we've reached the target
+            if (current.x === targetX && current.y === targetY) {
+                return true;
+            }
+            
+            // Try all four directions
+            for (const dir of directions) {
+                const nextX = current.x + dir.x;
+                const nextY = current.y + dir.y;
+                const nextKey = key(nextX, nextY);
+                
+                // Skip if already visited
+                if (visited[nextKey]) continue;
+                
+                // Get tile at this position
+                const tile = this.layer.getTileAt(nextX, nextY);
+                
+                // If tile is walkable (non-colliding or undefined/out of bounds)
+                if (!tile || !tile.collides) {
+                    // Mark as visited
+                    visited[nextKey] = true;
+                    
+                    // Add to queue
+                    queue.push({x: nextX, y: nextY});
+                }
+            }
+        }
+        
+        // If we've exhausted the search without finding the target, it's not reachable
+        return false;
+    }
+}
+
 export class AI extends Phaser.Physics.Arcade.Sprite {
     constructor(scene, x, y) {
         super(scene, x, y, 'player', 1);
@@ -724,18 +840,29 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
         this.playerMemory.currentInvestigationPoint = 0;
         
         // Start with the original position as the first search point
-        this.playerMemory.investigationPoints.push(
-            new Phaser.Math.Vector2(position.x, position.y)
-        );
+        // Only add if it's in a walkable area
+        const startTile = this.scene.layer.getTileAtWorldXY(position.x, position.y);
+        if (!startTile || !startTile.collides) {
+            this.playerMemory.investigationPoints.push(
+                new Phaser.Math.Vector2(position.x, position.y)
+            );
+        }
         
         // Define search parameters
         const searchRadius = this.respondingToBackup ? 96 : 64;
-        const numPoints = this.respondingToBackup ? 6 : 4;
+        const numPointsToTry = this.respondingToBackup ? 12 : 8; // Try more points than we need
+        const maxPointsToAdd = this.respondingToBackup ? 6 : 4;  // Limit to actual desired count
         
-        // Generate points in a circle around the last known position
-        for (let i = 0; i < numPoints; i++) {
+        // Use a pathfinder to verify points are reachable
+        const pathfinder = new SimplePathfinder(this.scene.map, this.scene.layer);
+        const aiPosition = new Phaser.Math.Vector2(this.x, this.y);
+        
+        // Generate potential points in a circle around the last known position
+        const potentialPoints = [];
+        
+        for (let i = 0; i < numPointsToTry; i++) {
             // Calculate angle for this point (evenly distributed)
-            const angle = (i / numPoints) * Math.PI * 2;
+            const angle = (i / numPointsToTry) * Math.PI * 2;
             
             // Calculate position with some randomness in distance
             const distance = Phaser.Math.Between(searchRadius * 0.5, searchRadius);
@@ -749,15 +876,16 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
             // Check if the point is in a walkable area (not in a wall)
             const tile = this.scene.layer.getTileAtWorldXY(x, y);
             if (!tile || !tile.collides) {
-                this.playerMemory.investigationPoints.push(
-                    new Phaser.Math.Vector2(x, y)
-                );
+                // Important: Check if the point is reachable from AI's current position
+                const targetPosition = new Phaser.Math.Vector2(x, y);
+                if (pathfinder.isReachable(aiPosition, targetPosition)) {
+                    potentialPoints.push(targetPosition);
+                }
             }
         }
         
-        // If we didn't generate any points, add some fallback points
-        if (this.playerMemory.investigationPoints.length <= 1) {
-            // Try cardinal directions at smaller distances
+        // If we didn't get enough points, try cardinal directions at smaller distances
+        if (potentialPoints.length < 2) {
             const fallbackDistances = [32, 48];
             const fallbackAngles = [0, Math.PI/2, Math.PI, Math.PI*3/2];
             
@@ -774,12 +902,34 @@ export class AI extends Phaser.Physics.Arcade.Sprite {
                     
                     const tile = this.scene.layer.getTileAtWorldXY(x, y);
                     if (!tile || !tile.collides) {
-                        this.playerMemory.investigationPoints.push(
-                            new Phaser.Math.Vector2(x, y)
-                        );
+                        // Check reachability
+                        const targetPosition = new Phaser.Math.Vector2(x, y);
+                        if (pathfinder.isReachable(aiPosition, targetPosition)) {
+                            potentialPoints.push(targetPosition);
+                        }
                     }
                 }
             }
+        }
+        
+        // As a last resort, use current AI position as a search point
+        if (potentialPoints.length === 0) {
+            // If we still couldn't find valid points, use AI's own position
+            potentialPoints.push(new Phaser.Math.Vector2(this.x, this.y));
+        }
+        
+        // Select the best points (closest to target but also distributed)
+        // Sort by distance to original position
+        potentialPoints.sort((a, b) => {
+            const distA = Phaser.Math.Distance.Between(a.x, a.y, position.x, position.y);
+            const distB = Phaser.Math.Distance.Between(b.x, b.y, position.x, position.y);
+            return distA - distB;
+        });
+        
+        // Add a subset of points to investigation points
+        const pointsToAdd = Math.min(maxPointsToAdd, potentialPoints.length);
+        for (let i = 0; i < pointsToAdd; i++) {
+            this.playerMemory.investigationPoints.push(potentialPoints[i]);
         }
         
         console.log(`Generated ${this.playerMemory.investigationPoints.length} search points`);

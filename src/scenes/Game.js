@@ -830,6 +830,15 @@ export class Game extends Scene {
         this.keyA = null;
         this.keyS = null;
         this.keyD = null;
+
+        // 1. Add these properties to the initialize() method in the Game class:
+        this.keyQ = null;            // Q key for yelling
+        this.yellButton = null;      // Mobile yell button
+        this.yellCooldown = false;   // Prevent spamming yell
+        this.yellCooldownTime = 2000; // 2 seconds between yells
+        this.yellRadiusMax = 200;    // Maximum radius for yell to be heard
+
+
     }
 
     init(data) {
@@ -857,6 +866,53 @@ export class Game extends Scene {
 
         // Create a graphics object for visualizing patrol paths
         this.patrolPathGraphics = this.add.graphics();
+
+        Phaser.GameObjects.Graphics.prototype.dashedLineTo = function(fromX, fromY, toX, toY, dashSize, gapSize) {
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const normX = dx / distance;
+            const normY = dy / distance;
+            let currX = fromX;
+            let currY = fromY;
+            let remainingDistance = distance;
+            
+            // Start path
+            this.beginPath();
+            
+            // Draw dashes
+            let isDrawing = true;
+            while (remainingDistance > 0) {
+                const segmentLength = isDrawing ? 
+                    Math.min(dashSize, remainingDistance) : 
+                    Math.min(gapSize, remainingDistance);
+                    
+                // If drawing, draw the line segment
+                if (isDrawing) {
+                    const nextX = currX + normX * segmentLength;
+                    const nextY = currY + normY * segmentLength;
+                    
+                    this.moveTo(currX, currY);
+                    this.lineTo(nextX, nextY);
+                    
+                    currX = nextX;
+                    currY = nextY;
+                } else {
+                    // Just update position without drawing
+                    currX += normX * segmentLength;
+                    currY += normY * segmentLength;
+                }
+                
+                // Reduce remaining distance and toggle drawing state
+                remainingDistance -= segmentLength;
+                isDrawing = !isDrawing;
+            }
+            
+            // Stroke the path
+            this.strokePath();
+            
+            return this;
+        };
 
         // Create the tilemap
         this.map = this.make.tilemap({ key: this.currentLevel, tileWidth: 16, tileHeight: 16 });
@@ -914,6 +970,9 @@ export class Game extends Scene {
             this.setupGameUI(levelNumber);
             if (this.minimap) {
                 this.minimap.resize(gameSize.width, gameSize.height);
+            }
+            if (this.sys.game.device.input.touch || this.ui.isMobile) {
+                this.createYellButton();
             }
         });
 
@@ -1060,6 +1119,10 @@ export class Game extends Scene {
             this.joystick.destroy();
             this.createVirtualJoystick();
         }
+
+        if (this.sys.game.device.input.touch || this.ui.isMobile) {
+            this.createYellButton();
+        }
     }
     
     // New toggle debug function for more effective debug toggling
@@ -1093,6 +1156,10 @@ export class Game extends Scene {
     
     // Set up keyboard event listeners
     setupKeyboardInput() {
+
+        // 2. Add Q key in setupKeyboardInput() method in the Game class:
+        this.keyQ = this.input.keyboard.addKey('Q');
+
         // Toggle debug menu
         const toggleDebugListener = (event) => {
             if (event.key === '`') {
@@ -1139,6 +1206,237 @@ export class Game extends Scene {
         this.input.keyboard.on('keydown-ESC', exitToLevelSelectListener);
         this.keyListeners.push({ event: 'keydown-ESC', handler: exitToLevelSelectListener });
     }
+
+    // 3. Add this method to the Game class to create the yell button for mobile
+    createYellButton() {
+        // Remove existing yell button if it exists
+        if (this.yellButton) {
+            this.yellButton.destroy();
+        }
+        
+        const { width, height } = this.cameras.main;
+        const safeZone = this.ui.getSafeZone();
+        
+        // Adjust position based on orientation and screen size
+        let buttonX, buttonY, buttonSize;
+        
+        if (this.ui.isLandscape) {
+            buttonX = safeZone.left + 80;
+            buttonY = height - safeZone.bottom - 80;
+            buttonSize = '22px';
+        } else {
+            // More compact on portrait mode
+            buttonX = safeZone.left + 60;
+            buttonY = height - safeZone.bottom - 60;
+            buttonSize = '18px';
+        }
+        
+        // Create a button in the bottom left corner
+        this.yellButton = this.ui.createButton(
+            buttonX,
+            buttonY,
+            'YELL',
+            {
+                fontFamily: 'Arial Black',
+                fontSize: buttonSize,
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 3,
+                backgroundColor: '#992200',
+                padding: {
+                    left: 16,
+                    right: 16,
+                    top: 8,
+                    bottom: 8
+                }
+            },
+            () => {
+                if (!this.yellCooldown && !this.gameOver) {
+                    this.yell();
+                }
+            }
+        ).setScrollFactor(0).setOrigin(0.5);
+        
+        // Add a subtle pulsing effect to make it stand out
+        this.tweens.add({
+            targets: this.yellButton,
+            scale: { from: 1, to: 1.05 },
+            duration: 500,
+            yoyo: true,
+            repeat: -1
+        });
+        
+        // Create a circular cooldown indicator behind the button
+        this.yellCooldownIndicator = this.add.arc(buttonX, buttonY, 40, 0, 360, false, 0x000000, 0.4);
+        this.yellCooldownIndicator.setScrollFactor(0).setVisible(false);
+        this.yellCooldownIndicator.setDepth(this.yellButton.depth - 1);
+    }
+
+    // 4. Add this function to handle the yelling action
+    yell() {
+        // Return if game is over
+        if (this.gameOver || this.gameWon) return;
+
+
+        console.log('Player yelled!');
+        
+        // Set cooldown
+        this.yellCooldown = true;
+        
+        // Play yell sound effect
+          if (!this.sound.mute) {
+            // Play the yell sound directly
+            this.sound.play('yell', { volume: 0.3 });
+        }
+        
+        // Visual indication of yelling (expanding circle)
+        const circle = this.add.circle(this.player.x, this.player.y, 20, 0xffffff, 0.5);
+        this.tweens.add({
+            targets: circle,
+            radius: this.yellRadiusMax,
+            alpha: 0,
+            duration: 800,
+            ease: 'Power2',
+            onComplete: () => {
+                circle.destroy();
+            }
+        });
+        
+        // Alert nearby AI enemies
+        this.alertNearbyEnemies();
+        
+        // Show cooldown indicator if applicable
+        if (this.yellButton && this.yellCooldownIndicator) {
+            // Show the cooldown indicator
+            this.yellCooldownIndicator.setVisible(true);
+            
+            // Change button color to indicate cooldown
+            this.yellButton.setStyle({ backgroundColor: '#555555' });
+            
+            // Animate the cooldown indicator
+            this.tweens.add({
+                targets: this.yellCooldownIndicator,
+                fillAlpha: { from: 0.7, to: 0 },
+                duration: this.yellCooldownTime,
+                ease: 'Linear',
+                onComplete: () => {
+                    this.yellCooldownIndicator.setVisible(false);
+                }
+            });
+        }
+        
+        // Reset cooldown after delay
+        this.time.delayedCall(this.yellCooldownTime, () => {
+            this.yellCooldown = false;
+            
+            // Give visual feedback that yell is available again
+            if (this.yellButton) {
+                // Reset button color
+                this.yellButton.setStyle({ backgroundColor: '#992200' });
+                
+                // Add a "ready" animation
+                this.tweens.add({
+                    targets: this.yellButton,
+                    scale: { from: 1.2, to: 1 },
+                    duration: 300,
+                    ease: 'Back.Out'
+                });
+            }
+        });
+    }
+
+    // 5. Add this function to alert nearby enemies
+    alertNearbyEnemies() {
+        // Define arrays of possible dialogue responses
+        const closeResponsePhrases = [
+            "What was that noise?",
+            "I heard something!",
+            "Who's there?",
+            "Something's not right...",
+            "Did you hear that?",
+            "That wasn't the wind...",
+            "Show yourself!",
+            "Someone's here!"
+        ];
+        
+        const distantResponsePhrases = [
+            "Huh?",
+            "Hmm?",
+            "What's that?",
+            "Strange...",
+            "Something's off...",
+            "Did I hear something?",
+            "What now?",
+            "...?"
+        ];
+        
+        this.enemies.forEach(enemy => {
+            // Calculate distance to the player
+            const distance = Phaser.Math.Distance.Between(
+                enemy.x, enemy.y,
+                this.player.x, this.player.y
+            );
+            
+            // Only alert enemies within range
+            if (distance <= this.yellRadiusMax) {
+                // The closer the enemy, the higher the alert level
+                const alertIncrease = Phaser.Math.Linear(50, 20, distance / this.yellRadiusMax);
+                
+                // Set the enemy to suspicious or searching state based on distance
+                if (distance < this.yellRadiusMax * 0.5) {
+                    // Enemy is close enough to hear clearly
+                    enemy.alertLevel = Math.min(100, enemy.alertLevel + alertIncrease);
+                    
+                    // Update last known position of player for the enemy
+                    enemy.playerMemory.lastKnownPosition = new Phaser.Math.Vector2(this.player.x, this.player.y);
+                    enemy.playerMemory.lastSeenTime = this.time.now;
+                    
+                    // Set enemy to searching state
+                    if (enemy.alertState !== enemy.alertStates.ALERT) {
+                        enemy.setAlertState(enemy.alertStates.SEARCHING);
+                        
+                        // Generate search points around player's position
+                        enemy.generateSearchPoints(enemy.playerMemory.lastKnownPosition);
+                    }
+                    
+                    // Choose a random phrase for close enemies
+                    const phrase = Phaser.Utils.Array.GetRandom(closeResponsePhrases);
+                    enemy.displayDialogue(phrase);
+                    
+                    // Add a small delay before the enemy starts moving
+                    enemy.isWaiting = true;
+                    enemy.waitTimer = 0;
+                    enemy.waitDuration = Phaser.Math.Between(300, 700);
+                } else {
+                    // Enemy is far enough that they only get suspicious
+                    enemy.alertLevel = Math.min(70, enemy.alertLevel + alertIncrease);
+                    
+                    // Set approximate position (add some randomness)
+                    const randomOffset = Phaser.Math.Between(-32, 32);
+                    enemy.playerMemory.lastKnownPosition = new Phaser.Math.Vector2(
+                        this.player.x + randomOffset,
+                        this.player.y + randomOffset
+                    );
+                    enemy.playerMemory.lastSeenTime = this.time.now;
+                    
+                    // Set enemy to suspicious state
+                    if (enemy.alertState !== enemy.alertStates.ALERT &&
+                        enemy.alertState !== enemy.alertStates.SEARCHING) {
+                        enemy.setAlertState(enemy.alertStates.SUSPICIOUS);
+                    }
+                    
+                    // Choose a random phrase for distant enemies
+                    const phrase = Phaser.Utils.Array.GetRandom(distantResponsePhrases);
+                    enemy.displayDialogue(phrase);
+                    
+                    // Add a longer delay for distant enemies (they're less sure)
+                    enemy.isWaiting = true;
+                    enemy.waitTimer = 0;
+                    enemy.waitDuration = Phaser.Math.Between(700, 1200);
+                }
+            }
+        });
+    }
     
     // Properly clean up resources before changing scenes
     cleanupAndChangeScene(sceneName, data = {}) {
@@ -1182,6 +1480,16 @@ export class Game extends Scene {
         if (this.healthBar) {
             this.healthBar.destroy();
             this.healthBar = null;
+        }
+
+        if (this.yellButton) {
+            this.yellButton.destroy();
+            this.yellButton = null;
+        }
+        
+        if (this.yellCooldownIndicator) {
+            this.yellCooldownIndicator.destroy();
+            this.yellCooldownIndicator = null;
         }
         
         // Start the new scene
@@ -1262,18 +1570,20 @@ export class Game extends Scene {
     visualizePatrolPaths() {
         this.patrolPathGraphics.clear();
         
-        // Only show if debug is enabled - early return if debug is not enabled
+        // Only show if debug is enabled
         if (!this.showDebug) {
             return;
         }
         
-        // Collect all patrol tiles
-        const patrolTiles = [];
+        // First, collect all patrol points for reference
+        const allPatrolPoints = [];
         this.layer.forEachTile(tile => {
             if (tile.index === 34) {
-                patrolTiles.push({
+                allPatrolPoints.push({
                     x: tile.pixelX + tile.width / 2,
                     y: tile.pixelY + tile.height / 2,
+                    tileX: tile.x,
+                    tileY: tile.y,
                     pixelX: tile.pixelX,
                     pixelY: tile.pixelY,
                     width: tile.width,
@@ -1282,11 +1592,11 @@ export class Game extends Scene {
             }
         });
         
-        // Draw tiles with high-visibility colors
-        this.patrolPathGraphics.lineStyle(2, 0xff00ff, 0.8); // Bright magenta outline
-        this.patrolPathGraphics.fillStyle(0x00ff00, 0.4);    // Bright green fill with transparency
+        // Draw all patrol tiles with a neutral color
+        this.patrolPathGraphics.lineStyle(1, 0x888888, 0.4); // Light gray outline for all tiles
+        this.patrolPathGraphics.fillStyle(0x888888, 0.2);    // Light gray fill for all tiles
         
-        patrolTiles.forEach(tile => {
+        allPatrolPoints.forEach(tile => {
             // Draw as a rectangle matching the tile size
             this.patrolPathGraphics.strokeRect(
                 tile.pixelX, tile.pixelY, 
@@ -1298,20 +1608,109 @@ export class Game extends Scene {
             );
         });
         
-        // Add visual connections between tiles to show the path
-        if (patrolTiles.length > 1) {
-            this.patrolPathGraphics.lineStyle(2, 0xffff00, 0.6); // Yellow line
-            this.patrolPathGraphics.beginPath();
-            this.patrolPathGraphics.moveTo(patrolTiles[0].x, patrolTiles[0].y);
-            
-            for (let i = 1; i < patrolTiles.length; i++) {
-                this.patrolPathGraphics.lineTo(patrolTiles[i].x, patrolTiles[i].y);
+        // Now visualize each enemy's assigned patrol path with a unique color
+        this.enemies.forEach((enemy, enemyIndex) => {
+            if (!enemy.hasAssignedPath || !enemy.patrolPath || enemy.patrolPath.length === 0) {
+                return;
             }
             
-            // Connect back to the first point
-            this.patrolPathGraphics.lineTo(patrolTiles[0].x, patrolTiles[0].y);
-            this.patrolPathGraphics.strokePath();
-        }
+            // Generate a unique color for this enemy based on its index
+            // This ensures each enemy has a distinct color
+            const hue = (enemyIndex * 137) % 360; // Use golden ratio to spread hues
+            const color = Phaser.Display.Color.HSLToColor(
+                hue / 360, 0.8, 0.6
+            ).color;
+            
+            // Draw the enemy's specific patrol path in its unique color
+            this.patrolPathGraphics.lineStyle(2, color, 0.8);
+            this.patrolPathGraphics.fillStyle(color, 0.4);
+            
+            // Draw path points
+            enemy.patrolPath.forEach(point => {
+                this.patrolPathGraphics.fillCircle(point.x, point.y, 4);
+            });
+            
+            // Draw path connections
+            if (enemy.patrolPath.length > 1) {
+                this.patrolPathGraphics.beginPath();
+                this.patrolPathGraphics.moveTo(enemy.patrolPath[0].x, enemy.patrolPath[0].y);
+                
+                for (let i = 1; i < enemy.patrolPath.length; i++) {
+                    this.patrolPathGraphics.lineTo(enemy.patrolPath[i].x, enemy.patrolPath[i].y);
+                }
+                
+                // Connect back to the first point for closed loops
+                if (enemy.isClosedLoopPath()) {
+                    this.patrolPathGraphics.lineTo(enemy.patrolPath[0].x, enemy.patrolPath[0].y);
+                }
+                
+                this.patrolPathGraphics.strokePath();
+            }
+            
+            // Highlight current path segment with a brighter color
+            if (enemy.currentPatrolPointIndex !== undefined) {
+                const currentIndex = enemy.currentPatrolPointIndex;
+                const nextIndex = enemy.getNextPatrolPointIndex();
+                
+                if (currentIndex !== undefined && nextIndex !== undefined &&
+                    enemy.patrolPath[currentIndex] && enemy.patrolPath[nextIndex]) {
+                    
+                    const currentPoint = enemy.patrolPath[currentIndex];
+                    const nextPoint = enemy.patrolPath[nextIndex];
+                    
+                    // Use a brighter version of the enemy's color for the current segment
+                    const brighterColor = Phaser.Display.Color.HSLToColor(
+                        hue / 360, 0.9, 0.7
+                    ).color;
+                    
+                    this.patrolPathGraphics.lineStyle(3, brighterColor, 0.9);
+                    this.patrolPathGraphics.beginPath();
+                    this.patrolPathGraphics.moveTo(currentPoint.x, currentPoint.y);
+                    this.patrolPathGraphics.lineTo(nextPoint.x, nextPoint.y);
+                    this.patrolPathGraphics.strokePath();
+                    
+                    // Draw interpolated target position (where AI is heading)
+                    if (enemy.alertState === enemy.alertStates.PATROL && 
+                        enemy.pathProgress !== undefined) {
+                        
+                        const dx = nextPoint.x - currentPoint.x;
+                        const dy = nextPoint.y - currentPoint.y;
+                        const targetX = currentPoint.x + dx * enemy.pathProgress;
+                        const targetY = currentPoint.y + dy * enemy.pathProgress;
+                        
+                        this.patrolPathGraphics.fillStyle(brighterColor, 0.9);
+                        this.patrolPathGraphics.fillCircle(targetX, targetY, 5);
+                    }
+                }
+            }
+            
+            // Draw a line from the enemy to its current target point
+            if (enemy.alertState === enemy.alertStates.PATROL) {
+                const currentIndex = enemy.currentPatrolPointIndex;
+                const nextIndex = enemy.getNextPatrolPointIndex();
+                
+                if (currentIndex !== undefined && nextIndex !== undefined &&
+                    enemy.patrolPath[currentIndex] && enemy.patrolPath[nextIndex]) {
+                    
+                    const currentPoint = enemy.patrolPath[currentIndex];
+                    const nextPoint = enemy.patrolPath[nextIndex];
+                    
+                    // Calculate the current target based on progress
+                    const dx = nextPoint.x - currentPoint.x;
+                    const dy = nextPoint.y - currentPoint.y;
+                    const targetX = currentPoint.x + dx * enemy.pathProgress;
+                    const targetY = currentPoint.y + dy * enemy.pathProgress;
+                    
+                    // Draw a line from the enemy to its current target
+                    this.patrolPathGraphics.lineStyle(1, color, 0.6);
+                    this.patrolPathGraphics.dashedLineTo(
+                        enemy.x, enemy.y,
+                        targetX, targetY,
+                        4, 4 // Dash and gap size
+                    );
+                }
+            }
+        });
     }
     
     updateHelpText() {
@@ -1334,12 +1733,13 @@ export class Game extends Scene {
 
     getHelpMessage() {
         return `Use the arrow keys or WASD on desktop or virtual joystick on mobile to move.
-Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
-Press "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}
-Press "X" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
-Press "Z" to reset zoom
-Enemies: ${this.enemies.length}
-AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!`;
+    Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
+    Press "Q" to yell and distract enemies (Cooldown: ${this.yellCooldown ? 'Active' : 'Ready'})
+    Press "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}
+    Press "X" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
+    Press "Z" to reset zoom
+    Enemies: ${this.enemies.length}
+    AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!`;
     }
 
     update(time, delta) {
@@ -1376,6 +1776,12 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
         // Call this in the update method:
         if (this.showDebug) {
             this.visualizePatrolPaths();
+        }
+
+        // In the update(time, delta) method, add this somewhere before the velocity calculations:
+        if (this.keyQ && this.keyQ.isDown && !this.yellCooldown && !this.gameOver) {
+            this.keyQ.isDown = false; // Reset to prevent holding down
+            this.yell();
         }
 
         // Reset player velocity
@@ -1576,22 +1982,16 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
         const patrolPaths = this.identifyDistinctPatrolPaths(patrolPoints);
         console.log(`Identified ${patrolPaths.length} distinct patrol paths`);
         
-        // If there's only one path, assign it to all enemies
-        if (patrolPaths.length === 1) {
-            this.enemies.forEach(enemy => {
-                enemy.assignPatrolPath(patrolPaths[0]);
-            });
-            return;
-        }
+        // Store assigned paths to ensure exclusivity
+        const assignedPathIndices = new Set();
         
-        // If there are multiple paths, assign each enemy to its closest path
+        // Assign paths to enemies, ensuring each enemy gets a unique path if possible
         this.enemies.forEach((enemy, index) => {
-            // Find the closest patrol path for this enemy
-            let closestPathIndex = 0;
-            let shortestDistance = Infinity;
-            
-            patrolPaths.forEach((path, pathIndex) => {
-                // Check distance to each point in the path
+            // Calculate distances from this enemy to each patrol path's nearest point
+            const pathDistances = patrolPaths.map((path, pathIndex) => {
+                let shortestDistance = Infinity;
+                
+                // Find the closest point in this path
                 path.forEach(point => {
                     const distance = Phaser.Math.Distance.Between(
                         enemy.x, enemy.y,
@@ -1600,14 +2000,52 @@ AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!
                     
                     if (distance < shortestDistance) {
                         shortestDistance = distance;
-                        closestPathIndex = pathIndex;
                     }
                 });
+                
+                return { 
+                    pathIndex, 
+                    distance: shortestDistance,
+                    assigned: assignedPathIndices.has(pathIndex)
+                };
             });
             
-            // Assign the closest path to this enemy
-            enemy.assignPatrolPath(patrolPaths[closestPathIndex]);
-            console.log(`Enemy ${index} assigned to patrol path ${closestPathIndex} with ${patrolPaths[closestPathIndex].length} points`);
+            // Sort by distance (closest first)
+            pathDistances.sort((a, b) => a.distance - b.distance);
+            
+            // Try to find the closest unassigned path first
+            let targetPathIndex = -1;
+            
+            // First pass: try to find unassigned paths
+            for (const pathData of pathDistances) {
+                if (!pathData.assigned) {
+                    targetPathIndex = pathData.pathIndex;
+                    break;
+                }
+            }
+            
+            // If all paths are assigned or there are more enemies than paths,
+            // we'll need to share paths - take the closest one
+            if (targetPathIndex === -1 && pathDistances.length > 0) {
+                targetPathIndex = pathDistances[0].pathIndex;
+            }
+            
+            // If we found a valid path, assign it to this enemy
+            if (targetPathIndex !== -1) {
+                // Mark this path as assigned to prevent other enemies from using it
+                // unless there are more enemies than paths
+                if (this.enemies.length <= patrolPaths.length) {
+                    assignedPathIndices.add(targetPathIndex);
+                }
+                
+                enemy.assignPatrolPath(patrolPaths[targetPathIndex]);
+                enemy.assignedPathIndex = targetPathIndex; // Store which path this enemy is using
+                
+                console.log(`Enemy ${index} assigned to patrol path ${targetPathIndex} with ${patrolPaths[targetPathIndex].length} points`);
+            } else {
+                // Fallback - should never happen unless there are no paths
+                console.log(`No suitable patrol path found for enemy ${index}`);
+            }
         });
     }
 
