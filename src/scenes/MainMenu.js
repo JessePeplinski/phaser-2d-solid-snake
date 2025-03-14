@@ -127,16 +127,16 @@ export class MainMenu extends Scene {
         
         createCreditsText();
 
-        // Define consistent button style for smaller buttons
-        const smallButtonStyle = {
+        // Define styles for different button types
+        const mainButtonStyle = {
             fontFamily: 'Arial Black',
-            fontSize: '22px', // Standardized size (decreased from 24px)
+            fontSize: '22px',
             color: '#ffffff',
             stroke: '#000000',
             strokeThickness: 4,
             align: 'center',
             backgroundColor: '#4a4a4a',
-            fixedWidth: 240, // Same width as main button
+            fixedWidth: 260,
             padding: {
                 left: 16,
                 right: 16,
@@ -144,77 +144,95 @@ export class MainMenu extends Scene {
                 bottom: 8
             }
         };
+        
+        // Smaller style for secondary buttons that will be arranged horizontally
+        const secondaryButtonStyle = {
+            fontFamily: 'Arial Black',
+            fontSize: '12px', // Smaller font size
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 3, // Slightly thinner stroke
+            align: 'center',
+            backgroundColor: '#4a4a4a',
+            fixedWidth: 160, // Narrower width
+            padding: {
+                left: 8,
+                right: 8,
+                top: 6,
+                bottom: 6
+            }
+        };
 
-        // Calculate equal button spacing
-        const buttonHeight = 50; // Approximate height of button
-        const buttonPadding = 25; // Space between buttons
-        const firstButtonY = centerY + 20;
+        // Position for main button
+        const mainButtonY = centerY + 20;
         
         // Create Start Game button using our responsive button creator
         const startButton = this.ui.createButton(
             centerX, 
-            firstButtonY, 
+            mainButtonY, 
             'Start Game', 
-            smallButtonStyle,
+            mainButtonStyle,
             () => {
                 this.music.stop();
                 this.scene.start('LevelSelect');
             }
         ).setOrigin(0.5);
         
-        // Create remaining buttons with equal spacing
+        // Calculate horizontal spacing for the row of buttons below
+        const secondaryButtonY = mainButtonY + 80; // Space below main button
+        const buttonCount = 4; // Number of buttons in the row
+        const totalWidth = secondaryButtonStyle.fixedWidth * buttonCount; // Total width of all buttons
+        const spacing = 16; // Space between buttons
+        const rowWidth = totalWidth + (spacing * (buttonCount - 1)); // Total width of the row
+        const startX = centerX - (rowWidth / 2) + (secondaryButtonStyle.fixedWidth / 2); // Starting X position
+        
+        // Create a row of smaller buttons with horizontal layout
+        // Feedback button
         this.ui.createButton(
-            centerX, 
-            firstButtonY + buttonHeight + buttonPadding, 
+            startX, 
+            secondaryButtonY, 
             'Feedback', 
-            smallButtonStyle,
+            secondaryButtonStyle,
             () => {
                 window.open('https://solidsnekgame.featurebase.app/', '_blank');
             }
         ).setOrigin(0.5);
         
+        // Roadmap button
         this.ui.createButton(
-            centerX, 
-            firstButtonY + (buttonHeight + buttonPadding) * 2, 
+            startX + secondaryButtonStyle.fixedWidth + spacing, 
+            secondaryButtonY, 
             'Roadmap', 
-            smallButtonStyle,
+            secondaryButtonStyle,
             () => {
                 window.open('https://solidsnekgame.featurebase.app/roadmap', '_blank');
             }
         ).setOrigin(0.5);
         
+        // Credits button
         this.ui.createButton(
-            centerX, 
-            firstButtonY + (buttonHeight + buttonPadding) * 3, 
+            startX + (secondaryButtonStyle.fixedWidth + spacing) * 2, 
+            secondaryButtonY, 
             'Credits', 
-            smallButtonStyle,
-            () => {
-                this.scene.start('Credits');
-            }
-        ).setOrigin(0.5);
-
-        this.ui.createButton(
-            centerX, 
-            firstButtonY + (buttonHeight + buttonPadding) * 3, 
-            'Credits', 
-            smallButtonStyle,
+            secondaryButtonStyle,
             () => {
                 this.scene.start('Credits');
             }
         ).setOrigin(0.5);
         
-        // Add Buy me a coffee button
+        // Buy me a coffee button
         this.ui.createButton(
-            centerX, 
-            firstButtonY + (buttonHeight + buttonPadding) * 4, 
-            'Buy me a coffee', 
-            smallButtonStyle,
+            startX + (secondaryButtonStyle.fixedWidth + spacing) * 3, 
+            secondaryButtonY, 
+            'Buy Coffee', 
+            secondaryButtonStyle,
             () => {
-                window.open('https://buymeacoffee.com/jessepeplinski', '_blank');
+                window.open('https://www.buymeacoffee.com/peptech', '_blank');
             }
         ).setOrigin(0.5);
 
         // Create a note at the bottom with responsive sizing and positioning
+        // Adjust position for additional button
         // Position at bottom with safe area margins
         const bottomMargin = this.ui.getSafeZone().bottom + 20;
         
