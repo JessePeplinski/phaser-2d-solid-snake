@@ -393,11 +393,11 @@ class Minimap {
             
             // Special tiles
             switch (tile.index) {
-                case 31: // Exit/goal
+                case 140: // Exit/goal
                     this.mapGraphics.fillStyle(this.config.exitColor, 0.7);
                     this.mapGraphics.fillRect(x, y, width, height);
                     break;
-                case 32: // Spawn point
+                case 141: // Spawn point
                     this.mapGraphics.fillStyle(this.config.spawnColor, 0.7);
                     this.mapGraphics.fillRect(x, y, width, height);
                     break;
@@ -933,7 +933,7 @@ export class Game extends Scene {
         // Find the spawn tile and position the player
         let spawnTile = null;
         this.layer.forEachTile(tile => {
-            if (tile.index === 32) {
+            if (tile.index === 141) {
                 spawnTile = tile;
             }
         });
@@ -1578,7 +1578,7 @@ export class Game extends Scene {
         // First, collect all patrol points for reference
         const allPatrolPoints = [];
         this.layer.forEachTile(tile => {
-            if (tile.index === 34) {
+            if (tile.index === 143) {
                 allPatrolPoints.push({
                     x: tile.pixelX + tile.width / 2,
                     y: tile.pixelY + tile.height / 2,
@@ -1739,7 +1739,7 @@ export class Game extends Scene {
     Press "X" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
     Press "Z" to reset zoom
     Enemies: ${this.enemies.length}
-    AI Behavior: Enemies follow patrol paths (tile 34) and chase when they spot you!`;
+    AI Behavior: Enemies follow patrol paths (tile 143) and chase when they spot you!`;
     }
 
     update(time, delta) {
@@ -1861,7 +1861,7 @@ export class Game extends Scene {
 
         // Check for win condition
         const goalTile = this.layer.getTileAtWorldXY(this.player.x, this.player.y);
-        if (goalTile && goalTile.index === 31) {
+        if (goalTile && goalTile.index === 140) {
             this.gameOver = true;
             this.gameWon = true;
             
@@ -1888,12 +1888,12 @@ export class Game extends Scene {
         this.enemies.forEach(enemy => enemy.destroy());
         this.enemies = [];
         
-        console.log('Looking for enemy spawn points (tile index 33)...');
+        console.log('Looking for enemy spawn points (tile index 142)...');
         
         // First collect all patrol tiles for debugging
         const patrolTiles = [];
         this.layer.forEachTile(tile => {
-            if (tile.index === 34) {
+            if (tile.index === 143) {
                 patrolTiles.push({
                     x: tile.x,
                     y: tile.y,
@@ -1902,12 +1902,12 @@ export class Game extends Scene {
                 });
             }
         });
-        console.log(`Found ${patrolTiles.length} patrol tiles (index 34)`);
+        console.log(`Found ${patrolTiles.length} patrol tiles (index 143)`);
         
-        // Look for enemy spawn points (tile index 33)
+        // Look for enemy spawn points (tile index 142)
         let spawnPoints = [];
         this.layer.forEachTile(tile => {
-            if (tile.index === 33) {
+            if (tile.index === 142) {
                 spawnPoints.push({
                     x: tile.pixelX + tile.width / 2,
                     y: tile.pixelY + tile.height / 2,
@@ -1963,7 +1963,7 @@ export class Game extends Scene {
         // First, collect all patrol points
         const patrolPoints = [];
         this.layer.forEachTile(tile => {
-            if (tile.index === 34) {
+            if (tile.index === 143) {
                 patrolPoints.push({
                     x: tile.pixelX + tile.width / 2,
                     y: tile.pixelY + tile.height / 2,
