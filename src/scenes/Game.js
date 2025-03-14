@@ -392,15 +392,13 @@ class Minimap {
             }
             
             // Special tiles
-            switch (tile.index) {
-                case 140: // Exit/goal
-                    this.mapGraphics.fillStyle(this.config.exitColor, 0.7);
-                    this.mapGraphics.fillRect(x, y, width, height);
-                    break;
-                case 141: // Spawn point
-                    this.mapGraphics.fillStyle(this.config.spawnColor, 0.7);
-                    this.mapGraphics.fillRect(x, y, width, height);
-                    break;
+            // Update to use tile properties
+            if (tile.index === this.scene.tileProps.exit) { // Exit/goal
+                this.mapGraphics.fillStyle(this.config.exitColor, 0.7);
+                this.mapGraphics.fillRect(x, y, width, height);
+            } else if (tile.index === this.scene.tileProps.playerSpawn) { // Spawn point
+                this.mapGraphics.fillStyle(this.config.spawnColor, 0.7);
+                this.mapGraphics.fillRect(x, y, width, height);
             }
         });
     }
@@ -838,6 +836,12 @@ export class Game extends Scene {
         this.yellCooldownTime = 2000; // 2 seconds between yells
         this.yellRadiusMax = 200;    // Maximum radius for yell to be heard
 
+        this.tileProps = {
+            exit: null,
+            playerSpawn: null,
+            aiSpawn: null,
+            aiPath: null
+        };
 
     }
 
@@ -920,6 +924,9 @@ export class Game extends Scene {
         this.layer = this.map.createLayer(0, tileset, 0, 0);
         this.map.setCollisionBetween(54, 83);
 
+        // Extract tile properties from the tileset
+        this.loadTileProperties();
+
         // Load footstep sound
         this.footstepSound = this.sound.add('footstep', {
             volume: 0.4,
@@ -933,7 +940,7 @@ export class Game extends Scene {
         // Find the spawn tile and position the player
         let spawnTile = null;
         this.layer.forEachTile(tile => {
-            if (tile.index === 141) {
+            if (tile.index === this.tileProps.playerSpawn) {
                 spawnTile = tile;
             }
         });
@@ -1018,6 +1025,49 @@ export class Game extends Scene {
         
         // Spawn enemies
         this.spawnEnemies();
+    }
+
+    loadTileProperties() {
+        if (!this.map || !this.map.tilesets || this.map.tilesets.length === 0) {
+            console.error('No tilesets found in the map');
+            return;
+        }
+        
+        const tileset = this.map.tilesets[0];
+        
+        // Loop through all tiles in the tileset
+        for (let i = 0; i < tileset.total; i++) {
+            const tileData = tileset.getTileData(i);
+            
+            // Skip if no properties or not a tile we're interested in
+            if (!tileData || !tileData.properties) continue;
+            
+            // Check for our special properties
+            if (tileData.properties.exit) {
+                this.tileProps.exit = i;
+                console.log(`Found exit tile with index ${i}`);
+            }
+            if (tileData.properties.playerspawn) {
+                this.tileProps.playerSpawn = i;
+                console.log(`Found player spawn tile with index ${i}`);
+            }
+            if (tileData.properties.aispawn) {
+                this.tileProps.aiSpawn = i;
+                console.log(`Found AI spawn tile with index ${i}`);
+            }
+            if (tileData.properties.aipath) {
+                this.tileProps.aiPath = i;
+                console.log(`Found AI path tile with index ${i}`);
+            }
+        }
+        
+        // Fallback to hardcoded values if properties weren't found
+        if (this.tileProps.exit === null) this.tileProps.exit = 140;
+        if (this.tileProps.playerSpawn === null) this.tileProps.playerSpawn = 141;
+        if (this.tileProps.aiSpawn === null) this.tileProps.aiSpawn = 142;
+        if (this.tileProps.aiPath === null) this.tileProps.aiPath = 143;
+        
+        console.log('Tile properties loaded:', this.tileProps);
     }
 
     // Updated setupGameUI method for src/scenes/Game.js
@@ -1861,7 +1911,7 @@ export class Game extends Scene {
 
         // Check for win condition
         const goalTile = this.layer.getTileAtWorldXY(this.player.x, this.player.y);
-        if (goalTile && goalTile.index === 140) {
+        if (goalTile && goalTile.index === this.tileProps.exit) {
             this.gameOver = true;
             this.gameWon = true;
             
@@ -1888,12 +1938,12 @@ export class Game extends Scene {
         this.enemies.forEach(enemy => enemy.destroy());
         this.enemies = [];
         
-        console.log('Looking for enemy spawn points (tile index 142)...');
+        console.log(`Looking for enemy spawn points (tile index ${this.tileProps.aiSpawn})...`);
         
         // First collect all patrol tiles for debugging
         const patrolTiles = [];
         this.layer.forEachTile(tile => {
-            if (tile.index === 143) {
+            if (tile.index === this.tileProps.aiPath) {
                 patrolTiles.push({
                     x: tile.x,
                     y: tile.y,
@@ -1902,12 +1952,13 @@ export class Game extends Scene {
                 });
             }
         });
-        console.log(`Found ${patrolTiles.length} patrol tiles (index 143)`);
+        console.log(`Found ${patrolTiles.length} patrol tiles (index ${this.tileProps.aiPath})`);
+
         
         // Look for enemy spawn points (tile index 142)
         let spawnPoints = [];
         this.layer.forEachTile(tile => {
-            if (tile.index === 142) {
+            if (tile.index === this.tileProps.aiSpawn) {
                 spawnPoints.push({
                     x: tile.pixelX + tile.width / 2,
                     y: tile.pixelY + tile.height / 2,
@@ -1917,7 +1968,7 @@ export class Game extends Scene {
             }
         });
         
-        console.log(`Found ${spawnPoints.length} enemy spawn points (tile index 33)`);
+        console.log(`Found ${spawnPoints.length} enemy spawn points (tile index ${this.tileProps.aiSpawn})`);
         
         // Create enemies at each spawn point
         spawnPoints.forEach((spawn, index) => {
@@ -1963,7 +2014,7 @@ export class Game extends Scene {
         // First, collect all patrol points
         const patrolPoints = [];
         this.layer.forEachTile(tile => {
-            if (tile.index === 143) {
+            if (tile.index === this.tileProps.aiPath) {
                 patrolPoints.push({
                     x: tile.pixelX + tile.width / 2,
                     y: tile.pixelY + tile.height / 2,
