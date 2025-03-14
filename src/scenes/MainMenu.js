@@ -193,6 +193,27 @@ export class MainMenu extends Scene {
             }
         ).setOrigin(0.5);
 
+        this.ui.createButton(
+            centerX, 
+            firstButtonY + (buttonHeight + buttonPadding) * 3, 
+            'Credits', 
+            smallButtonStyle,
+            () => {
+                this.scene.start('Credits');
+            }
+        ).setOrigin(0.5);
+        
+        // Add Buy me a coffee button
+        this.ui.createButton(
+            centerX, 
+            firstButtonY + (buttonHeight + buttonPadding) * 4, 
+            'Buy me a coffee', 
+            smallButtonStyle,
+            () => {
+                window.open('https://buymeacoffee.com/jessepeplinski', '_blank');
+            }
+        ).setOrigin(0.5);
+
         // Create a note at the bottom with responsive sizing and positioning
         // Position at bottom with safe area margins
         const bottomMargin = this.ui.getSafeZone().bottom + 20;
