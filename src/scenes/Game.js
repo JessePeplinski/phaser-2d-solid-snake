@@ -837,7 +837,7 @@ Press the tilda \` key to open the debug menu.`;
         if (this.ui.isLandscape) {
             // Position in right side but not too close to edge in landscape
             x = width * 0.85;  // 85% across instead of at the edge
-            y = height - safeZone.bottom - radius - 30;
+            y = height - safeZone.bottom - radius - 50;
         } else {
             // Position in right side but not too close to edge in portrait
             x = width * 0.82;  // 82% across in portrait (slightly more centered)
