@@ -11,6 +11,125 @@ export class MainMenu extends Scene {
         // Initialize our responsive UI helper
         this.ui = new ResponsiveUI(this);
         
+        if (this.ui.isMobile && !this.ui.isLandscape) {
+            // Semi-transparent dark background
+            const { width, height } = this.cameras.main;
+            const overlay = this.add.rectangle(width/2, height/2, width, height, 0x000000, 0.7);
+            
+            // Create container for notification elements
+            const container = this.add.container(width/2, height/2);
+            
+            // Notification text
+            const messageText = this.add.text(0, -40, 'For the best experience\nrotate your device', {
+                fontFamily: 'Arial Black',
+                fontSize: '24px',
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 4,
+                align: 'center'
+            }).setOrigin(0.5);
+            
+            // Phone rotation icon
+            const phoneWidth = 60;
+            const phoneHeight = 30;
+            const phoneOutline = this.add.graphics();
+            phoneOutline.lineStyle(4, 0xffffff, 1);
+            phoneOutline.strokeRoundedRect(-phoneWidth/2, -phoneHeight/2, phoneWidth, phoneHeight, 5);
+            
+            // Add arrows indicating rotation
+            const arrowSize = 20;
+            const arrowDistance = 50;
+            
+            const arrowLeft = this.add.graphics();
+            arrowLeft.lineStyle(4, 0xffffff, 1);
+            arrowLeft.beginPath();
+            arrowLeft.moveTo(-arrowDistance - arrowSize, 0);
+            arrowLeft.lineTo(-arrowDistance, arrowSize/2);
+            arrowLeft.lineTo(-arrowDistance, -arrowSize/2);
+            arrowLeft.closePath();
+            arrowLeft.fillPath();
+            
+            const arrowRight = this.add.graphics();
+            arrowRight.lineStyle(4, 0xffffff, 1);
+            arrowRight.beginPath();
+            arrowRight.moveTo(arrowDistance + arrowSize, 0);
+            arrowRight.lineTo(arrowDistance, arrowSize/2);
+            arrowRight.lineTo(arrowDistance, -arrowSize/2);
+            arrowRight.closePath();
+            arrowRight.fillPath();
+            
+            // Continue button
+            const continueButton = this.ui.createButton(
+                0, 
+                80, 
+                'Continue Anyway', 
+                {
+                    fontFamily: 'Arial Black',
+                    fontSize: '16px',
+                    color: '#ffffff',
+                    stroke: '#000000',
+                    strokeThickness: 2,
+                    backgroundColor: '#4a4a4a',
+                    padding: {
+                        left: 12,
+                        right: 12,
+                        top: 8,
+                        bottom: 8
+                    }
+                },
+                () => {
+                    // Add a fade out animation
+                    this.tweens.add({
+                        targets: [overlay, container],
+                        alpha: 0,
+                        duration: 300,
+                        onComplete: () => {
+                            overlay.destroy();
+                            container.destroy();
+                        }
+                    });
+                }
+            );
+            
+            // Add everything to the container
+            container.add([messageText, phoneOutline, arrowLeft, arrowRight, continueButton]);
+            
+            // Add rotation animation to phone icon
+            this.tweens.add({
+                targets: phoneOutline,
+                angle: 90,
+                duration: 1000,
+                ease: 'Power2',
+                yoyo: true,
+                repeat: -1
+            });
+            
+            // Add pulsing animation to arrows
+            this.tweens.add({
+                targets: [arrowLeft, arrowRight],
+                alpha: 0.5,
+                duration: 500,
+                ease: 'Sine.easeInOut',
+                yoyo: true,
+                repeat: -1
+            });
+            
+            // Listen for orientation changes
+            this.scale.on('resize', (gameSize) => {
+                if (this.ui.isLandscape && overlay && overlay.active) {
+                    this.tweens.add({
+                        targets: [overlay, container],
+                        alpha: 0,
+                        duration: 300,
+                        onComplete: () => {
+                            overlay.destroy();
+                            container.destroy();
+                        }
+                    });
+                }
+            });
+        }
+        
         // Set up the background music but don't play it yet
         this.music = this.sound.add('mgs-intro-music', {
             volume: 0.5,
