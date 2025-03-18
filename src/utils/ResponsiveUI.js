@@ -137,11 +137,29 @@ export class ResponsiveUI {
         }
     }
     
-    // Calculate safe zone padding (useful for notched phones)
+    // Calculate safe zone padding (accounting for browser bars, notches, etc.)
     getSafeZone() {
-        const topPadding = this.isMobile ? 40 : 20;
+        // Base padding values
+        let topPadding = this.isMobile ? 40 : 20;
         const bottomPadding = this.isMobile ? 40 : 20;
         const sidePadding = this.isMobile ? 20 : 10;
+        
+        // Specific adjustment for mobile landscape mode to account for browser bars
+        if (this.isMobile && this.isLandscape) {
+            // Calculate an estimated browser bar height
+            // The difference between window inner height and visible height can help estimate browser bar size
+            const estimatedBrowserBarHeight = Math.max(0, 
+                window.outerHeight - window.innerHeight
+            );
+            
+            // Apply additional padding based on browser bar height, with a minimum of 60px for landscape
+            topPadding = Math.max(60, topPadding + estimatedBrowserBarHeight * 0.5);
+            
+            // For devices with minimal browser chrome but still need padding
+            if (window.innerHeight / window.innerWidth > 0.7) { // Typical landscape aspect ratio check
+                topPadding = Math.max(topPadding, 70); // Higher minimum for certain devices
+            }
+        }
         
         return {
             top: topPadding,

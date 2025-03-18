@@ -30,7 +30,11 @@ const config = {
         max: {
             width: 1920,
             height: 1080
-        }
+        },
+        // Add specific mobile handling for better browser bar accommodation
+        autoRound: true, // Helps with pixel alignment
+        fullscreenTarget: 'game-container', // Target the specific container
+        expandParent: true, // Ensures the parent expands to fit the game
     },
     physics: {
         default: 'arcade',

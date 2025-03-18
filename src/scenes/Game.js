@@ -315,10 +315,10 @@ export class Game extends Scene {
         // Create minimap in top right corner with appropriate size based on orientation
         if (this.minimap) this.minimap.destroy();
         
-        // Create the health bar
+        // Create the health bar - adjusted for browser bar in landscape
         this.healthBar = new HealthBar(this, {
             x: safeZone.left + 20,
-            y: safeZone.top + 20,
+            y: safeZone.top + (this.ui.isLandscape ? 30 : 20), // Increased top offset in landscape
             width: this.ui.isLandscape ? 180 : 140,
             height: this.ui.isLandscape ? 18 : 15,
             labelText: 'LIFE',
@@ -331,18 +331,19 @@ export class Game extends Scene {
         });
         
         if (this.ui.isLandscape) {
-            // Landscape layout
+            // Landscape layout - adjusted for browser bars
             this.minimap = new Minimap(this, {
                 x: width - safeZone.right - 180,
-                y: safeZone.top + 20,
+                y: safeZone.top + 30, // Increased spacing from top
                 width: 160,
                 height: 120
             });
             
             // Move menu button to top left - no timer text needed as it's in the minimap
+            // Adjust position to account for potentially larger top safe zone
             this.menuButton = this.ui.createButton(
                 safeZone.left + 80, 
-                safeZone.top + 50, // Move below health bar
+                safeZone.top + 70, // Increased vertical offset to avoid browser bar
                 'Main Menu', 
                 {
                     fontSize: '14px',
@@ -353,10 +354,10 @@ export class Game extends Scene {
                 () => this.cleanupAndChangeScene('MainMenu')
             ).setScrollFactor(0).setOrigin(0.5, 0);
             
-            // Create help text at the bottom left
+            // Create help text at the bottom left - also adjusted down
             this.helpText = this.ui.createText(
                 safeZone.left + 16, 
-                safeZone.top + 110, // Move below health bar and menu button
+                safeZone.top + 130, // Increased vertical spacing
                 this.getHelpMessage(), 
                 { fontSize: '14px', fill: '#ffffff' }
             ).setScrollFactor(0).setVisible(false);
