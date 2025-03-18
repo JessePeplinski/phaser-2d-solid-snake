@@ -1051,14 +1051,13 @@ export class Game extends Scene {
     }
 
     getHelpMessage() {
-        return `Use the arrow keys or WASD on desktop or virtual joystick on mobile to move.
-    Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
-    Press "Q" to yell and distract enemies (Cooldown: ${this.yellCooldown ? 'Active' : 'Ready'})
-    Press "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}
-    Press "X" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
-    Press "Z" to reset zoom
-    Enemies: ${this.enemies.length}
-    AI Behavior: Enemies follow patrol paths (tile 143) and chase when they spot you!`;
+        return `Mouse wheel to zoom in/out (Current zoom: ${this.currentZoom.toFixed(1)}x)
+Yell Cooldown: ${this.yellCooldown ? 'Active' : 'Ready'})
+Press "C" to toggle debug visuals: ${this.showDebug ? 'on' : 'off'}
+Press "X" to toggle darkness: ${this.darknessEnabled ? 'on' : 'off'}
+Press "Z" to reset zoom
+Enemies: ${this.enemies.length}
+AI Behavior: Enemies follow patrol paths (tile 143) and chase when they spot you!`;
     }
 
     update(time, delta) {
