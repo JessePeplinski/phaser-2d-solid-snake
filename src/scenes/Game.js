@@ -310,6 +310,7 @@ export class Game extends Scene {
         if (this.helpText) this.helpText.destroy();
         if (this.menuButton) this.menuButton.destroy();
         if (this.healthBar) this.healthBar.destroy();
+        if (this.instructionsText) this.instructionsText.destroy();
         
         // Create minimap in top right corner with appropriate size based on orientation
         if (this.minimap) this.minimap.destroy();
@@ -359,6 +360,22 @@ export class Game extends Scene {
                 this.getHelpMessage(), 
                 { fontSize: '14px', fill: '#ffffff' }
             ).setScrollFactor(0).setVisible(false);
+            
+            // Create always visible instructions text at bottom left
+            this.instructionsText = this.ui.createText(
+                safeZone.left + 16,
+                height - safeZone.bottom - 16,
+                "Find the exit (the red tile) and avoid the enemies. Arrow keys or WASD to move. Press \"Q\" to yell and distract enemies.",
+                {
+                    fontFamily: 'Arial',
+                    fontSize: '12px',
+                    color: '#ffffff',
+                    stroke: '#000000',
+                    strokeThickness: 3,
+                    align: 'left',
+                    wordWrap: { width: width * 0.35 }
+                }
+            ).setScrollFactor(0).setOrigin(0, 1);
         } else {
             // Portrait layout - more compact UI
             this.minimap = new Minimap(this, {
@@ -389,6 +406,22 @@ export class Game extends Scene {
                 this.getHelpMessage(), 
                 { fontSize: '12px', fill: '#ffffff' }
             ).setScrollFactor(0).setVisible(false);
+            
+            // Create always visible instructions text at bottom left with smaller font for portrait mode
+            this.instructionsText = this.ui.createText(
+                safeZone.left + 16,
+                height - safeZone.bottom - 16,
+                "Find the exit (the red tile) and avoid enemies. Arrow keys/WASD to move. \"Q\" to yell and distract enemies.",
+                {
+                    fontFamily: 'Arial',
+                    fontSize: '12px',
+                    color: '#ffffff',
+                    stroke: '#000000',
+                    strokeThickness: 2,
+                    align: 'left',
+                    wordWrap: { width: width * 0.7 }
+                }
+            ).setScrollFactor(0).setOrigin(0, 1);
         }
         
         // Set timerText to null since we're no longer using a separate timer element
@@ -760,6 +793,12 @@ export class Game extends Scene {
         if (this.healthBar) {
             this.healthBar.destroy();
             this.healthBar = null;
+        }
+
+        // Destroy the instructions text
+        if (this.instructionsText) {
+            this.instructionsText.destroy();
+            this.instructionsText = null;
         }
 
         if (this.yellButton) {
