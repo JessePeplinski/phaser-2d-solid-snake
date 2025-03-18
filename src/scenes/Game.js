@@ -365,15 +365,14 @@ export class Game extends Scene {
             this.instructionsText = this.ui.createText(
                 safeZone.left + 16,
                 height - safeZone.bottom - 16,
-                "Find the exit (the red tile) and avoid the enemies. Arrow keys or WASD to move. Press \"Q\" to yell and distract enemies.",
+                this.getInstructionsMessage(),
                 {
                     fontFamily: 'Arial',
                     fontSize: '12px',
                     color: '#ffffff',
                     stroke: '#000000',
                     strokeThickness: 3,
-                    align: 'left',
-                    wordWrap: { width: width * 0.35 }
+                    align: 'left'
                 }
             ).setScrollFactor(0).setOrigin(0, 1);
         } else {
@@ -411,15 +410,14 @@ export class Game extends Scene {
             this.instructionsText = this.ui.createText(
                 safeZone.left + 16,
                 height - safeZone.bottom - 16,
-                "Find the exit (the red tile) and avoid enemies. Arrow keys/WASD to move. \"Q\" to yell and distract enemies.",
+                this.getInstructionsMessage(),
                 {
                     fontFamily: 'Arial',
-                    fontSize: '12px',
+                    fontSize: '10px',
                     color: '#ffffff',
                     stroke: '#000000',
                     strokeThickness: 2,
-                    align: 'left',
-                    wordWrap: { width: width * 0.7 }
+                    align: 'left'
                 }
             ).setScrollFactor(0).setOrigin(0, 1);
         }
@@ -436,6 +434,13 @@ export class Game extends Scene {
         if (this.sys.game.device.input.touch || this.ui.isMobile) {
             this.createYellButton();
         }
+    }
+
+    getInstructionsMessage() {
+        return `Find the exit (the red tile) and avoid the enemies.
+Arrow keys or WASD to move.
+Press "Q" to yell and distract enemies.
+Press the tilda \` key to open the debug menu.`;
     }
     
     // New toggle debug function for more effective debug toggling
