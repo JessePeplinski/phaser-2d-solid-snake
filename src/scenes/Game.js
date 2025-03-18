@@ -344,7 +344,7 @@ export class Game extends Scene {
             this.menuButton = this.ui.createButton(
                 safeZone.left + 80, 
                 safeZone.top + 70, // Increased vertical offset to avoid browser bar
-                'Main Menu', 
+                'MENU', 
                 {
                     fontSize: '14px',
                     fill: '#ffffff',
@@ -533,6 +533,10 @@ Press the tilda \` key to open the debug menu.`;
             this.yellButton.destroy();
         }
         
+        if (this.yellCooldownIndicator) {
+            this.yellCooldownIndicator.destroy();
+        }
+        
         const { width, height } = this.cameras.main;
         const safeZone = this.ui.getSafeZone();
         
@@ -541,13 +545,13 @@ Press the tilda \` key to open the debug menu.`;
         
         if (this.ui.isLandscape) {
             buttonX = safeZone.left + 80;
-            buttonY = height - safeZone.bottom - 80;
-            buttonSize = '22px';
+            buttonY = safeZone.top + 150, // Increased vertical offset to avoid browser bar
+            buttonSize = '14px';
         } else {
-            // More compact on portrait mode
+            // Position below the menu button in portrait mode
             buttonX = safeZone.left + 60;
-            buttonY = height - safeZone.bottom - 60;
-            buttonSize = '18px';
+            buttonY = safeZone.top + 90; // Position below menu button (which is at top + 50)
+            buttonSize = '14px';
         }
         
         // Create a button in the bottom left corner
@@ -562,12 +566,7 @@ Press the tilda \` key to open the debug menu.`;
                 stroke: '#000000',
                 strokeThickness: 3,
                 backgroundColor: '#992200',
-                padding: {
-                    left: 16,
-                    right: 16,
-                    top: 8,
-                    bottom: 8
-                }
+                padding: { left: 8, right: 8, top: 4, bottom: 4 }
             },
             () => {
                 if (!this.yellCooldown && !this.gameOver) {
