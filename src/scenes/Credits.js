@@ -14,20 +14,32 @@ export class Credits extends Scene {
         const centerX = width / 2;
         const safeZone = this.ui.getSafeZone();
         
-        // Set background
+        // Set background without any overlays
         const background = this.add.image(centerX, height/2, 'background');
         background.setDisplaySize(width, height);
-        background.setAlpha(0.6); // Dimmer background for better text readability
+        background.setAlpha(0.7); // Slightly dimmed background for readability
         
-        // Add title - use responsive text
-        this.ui.createText(centerX, safeZone.top + 40, 'Credits', {
+        // Add title - with left alignment and smaller font
+        const titleText = this.ui.createText(safeZone.left + 20, safeZone.top + 20, 'Credits', {
             fontFamily: 'Arial Black',
-            fontSize: '48px',
+            fontSize: '32px',
             color: '#ffffff',
             stroke: '#000000',
-            strokeThickness: 6,
-            align: 'center'
-        }).setOrigin(0.5);
+            strokeThickness: 4,
+            align: 'left'
+        }).setOrigin(0, 0);
+        
+        // Create a scrollable container for credits content with responsive sizing
+        const containerWidth = width - safeZone.left - safeZone.right - 40;
+        const containerTop = safeZone.top + 80; // Position below title
+        const containerHeight = height - containerTop - safeZone.bottom - 80;
+        
+        const creditsMask = this.add.graphics()
+            .fillStyle(0xffffff)
+            .fillRect(safeZone.left + 20, containerTop, containerWidth, containerHeight);
+        
+        const creditsContainer = this.add.container(0, containerTop);
+        creditsContainer.setMask(creditsMask.createGeometryMask());
         
         // Credits content with multiple items per section
         const creditSections = [
@@ -76,48 +88,38 @@ export class Credits extends Scene {
             }
         ];
         
-        // Create a scrollable container for credits content with responsive sizing
-        const containerWidth = width * 0.8;
-        const containerTop = safeZone.top + 120;
-        const containerHeight = height - containerTop - safeZone.bottom - 80;
-        
-        const creditsMask = this.add.graphics()
-            .fillStyle(0xffffff)
-            .fillRect((width - containerWidth) / 2, containerTop, containerWidth, containerHeight);
-        
-        const creditsContainer = this.add.container(0, containerTop);
-        creditsContainer.setMask(creditsMask.createGeometryMask());
-        
-        // Track total height for positioning
+        // Track total height for positioning with tighter spacing
         let currentY = 0;
-        const sectionSpacing = this.ui.fontSize(30);
-        const itemSpacing = this.ui.fontSize(10);
+        const sectionSpacing = this.ui.fontSize(14);
+        const itemSpacing = this.ui.fontSize(5);
+        const leftMargin = safeZone.left + 20; // Consistent left margin
         
         // Add each credit section
         creditSections.forEach(section => {
-            // Add section header with responsive text
-            const headerText = this.ui.createText(centerX, currentY, section.header, {
+            // Add section header with left-aligned text and smaller font
+            const headerText = this.ui.createText(leftMargin, currentY, section.header, {
                 fontFamily: 'Arial Black',
-                fontSize: '28px',
+                fontSize: '14px',
                 color: '#ffffff',
                 stroke: '#000000',
-                strokeThickness: 4,
-                align: 'center'
-            }).setOrigin(0.5, 0);
+                strokeThickness: 2,
+                align: 'left'
+            }).setOrigin(0, 0);
             
             creditsContainer.add(headerText);
             currentY += headerText.height + itemSpacing;
             
             // Add each item under this header
             section.items.forEach(item => {
-                const itemText = this.ui.createText(centerX, currentY, item.name, {
+                // Create item text with left alignment and much smaller font
+                const itemText = this.ui.createText(leftMargin + 20, currentY, item.name, {
                     fontFamily: 'Arial',
-                    fontSize: '22px',
+                    fontSize: '12px',
                     color: item.url ? '#66ccff' : '#ffffff',
                     stroke: '#000000',
-                    strokeThickness: 3,
-                    align: 'center'
-                }).setOrigin(0.5, 0);
+                    strokeThickness: 1,
+                    align: 'left'
+                }).setOrigin(0, 0);
                 
                 creditsContainer.add(itemText);
                 
@@ -140,17 +142,20 @@ export class Credits extends Scene {
         const contentHeight = currentY;
         const maxScroll = Math.max(0, contentHeight - containerHeight);
         
+        // Only add scroll instructions if content needs scrolling
         if (maxScroll > 0) {
-            // Add scroll instructions with responsive text
-            this.ui.createText(centerX, height - safeZone.bottom - 45, 
+            // Add scroll instructions
+            this.ui.createText(
+                safeZone.left + 300, 
+                height - safeZone.bottom - 60, 
                 'Scroll with mouse wheel or drag to see more', {
                 fontFamily: 'Arial',
-                fontSize: '14px',
+                fontSize: '12px',
                 color: '#cccccc',
                 stroke: '#000000',
-                strokeThickness: 2,
-                align: 'center'
-            }).setOrigin(0.5);
+                strokeThickness: 1,
+                align: 'left'
+            }).setOrigin(0, 0).setScrollFactor(0);
             
             // Mouse wheel scrolling
             this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
@@ -193,20 +198,20 @@ export class Credits extends Scene {
         
         // Back button with responsive sizing and positioning
         this.ui.createButton(
-            centerX, 
+            safeZone.left + 20, 
             height - safeZone.bottom - 20, 
             'Back to Menu', 
             {
                 fontFamily: 'Arial Black',
-                fontSize: '24px',
+                fontSize: '16px',
                 color: '#ffffff',
                 stroke: '#000000',
-                strokeThickness: 4,
+                strokeThickness: 2,
                 backgroundColor: '#4a4a4a'
             },
             () => {
                 this.scene.start('MainMenu');
             }
-        ).setOrigin(0.5, 1);
+        ).setOrigin(0, 1);
     }
 }
